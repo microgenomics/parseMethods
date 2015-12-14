@@ -41,7 +41,7 @@ do
 		tifamilyband=1
 	;;
 	"--help")
-		echo -e "Options aviable:\n --workpath path where directory tree or your files are (included requirement files).\n --cfile configuration file. \n --local all files to parsed are in a folder"
+		echo -e "Options aviable:\n --workpath path where directory tree or your files are (included requirement files).\n --cfile configuration file. \n --local all files to parsed"
 		echo -e "\n to apply Perdonazo method, you must especify in the config file the parameter ABSENT=yes, the script automatically calculate corresponding data"
 		echo "if ABUNDANCE is missing in the configuration file, its equals to generate results in reads number instead percents"
 		exit
