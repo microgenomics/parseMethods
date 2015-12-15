@@ -5,4 +5,6 @@ parseMethods is part of SEPA, a multi pipe for testing metagenomic profiling sof
 
 ## Usage
 
+    bash parseMethods.bash --workpath ./example_files/ --cfile config.conf --local
 
+Where `--workpath` is the path to the directory that contains your program-specific output files. In the example, the files within `./example_files/` come from [PathoScope2](https://github.com/PathoScope/PathoScope)
