@@ -49,6 +49,7 @@ do
 	*)
 		if [ $((workband)) -eq 1 ];then
 			RUTAINICIAL=$i
+			EXECUTIONPATH=`pwd`
 			statusband=$((statusband+1))
 			workband=0
 		fi
@@ -207,7 +208,7 @@ function pathoscopeFunction {
 	else
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
-		Rscript makeCSV.R . tsv.dat pathoscope_table.csv
+		Rscript ${EXECUTIONPATH}/makeCSV.R . tsv.dat pathoscope_table.csv
 		rm parsed*
 		sed -i '' "s/ti.//g" pathoscope_table.csv
 		sed -i '' "s/\"\"/\"ti\"/g" pathoscope_table.csv
@@ -258,7 +259,7 @@ function metamixFunction {
 	else
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
-		Rscript makeCSV.R . tsv.dat metamix_table.csv
+		Rscript ${EXECUTIONPATH}/makeCSV.R . tsv.dat metamix_table.csv
 		rm parsed*
 		sed -i '' "s/ti.//g" metamix_table.csv
 		sed -i '' "s/\"\"/\"ti\"/g" metamix_table.csv
@@ -335,7 +336,7 @@ function sigmaFunction {
 	else
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
-		Rscript makeCSV.R . gvector.txt.dat sigma_table.csv
+		Rscript ${EXECUTIONPATH}/makeCSV.R . gvector.txt.dat sigma_table.csv
 		rm parsed*
 		sed -i '' "s/ti.//g" sigma_table.csv
 		sed -i '' "s/\"\"/\"ti\"/g" sigma_table.csv
