@@ -149,7 +149,7 @@ function TakeLineageFunction {
 	Matrix=$1
 	if [ -f $Matrix ]; then
 		#print the headers for the csv
-		echo '"Superkingdom","Phylum","Class","Order","Family","Genus","Specie","Name","' >> TaxonomyPredictionMatrix.csv 
+		echo '"Superkingdom","Phylum","Class","Order","Family","Genus","Specie","Name",' >> TaxonomyPredictionMatrix.csv 
 		for ti in `awk 'BEGIN{FS="\""}{if(NR>1){print $2}}' $Matrix`
 		do
 			echo "fetching lineage from ti: $ti"
@@ -159,10 +159,10 @@ function TakeLineageFunction {
 			name=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml` #be careful with \n
 			lineage=`awk 'BEGIN{FS="[<|>]";prev=""}{if($2=="ScientificName"){prev=$3}if($3=="superkingdom"){printf "%s,",prev}if($3=="phylum"){printf "%s,",prev}if($3=="class"){printf "%s,",prev}if($3=="order"){printf "%s,", prev}if($3=="family"){printf "%s,",prev}if($3=="genus"){printf "%s,",prev}if($3=="species"){printf "%s,",prev}}' tmp.xml`
 
-			echo "$lineage$name" >> TaxonomyPredictionMatrix.csv
+			echo "$lineage$name," >> TaxonomyPredictionMatrix.csv
 			rm tmp.xml
 		done
-		paste TaxonomyPredictionMatrix.csv $Matrix > tmp.csv 
+		paste -d '\0' TaxonomyPredictionMatrix.csv $Matrix > tmp.csv 
 		rm TaxonomyPredictionMatrix.csv $Matrix
 		mv tmp.csv $Matrix
 	else
