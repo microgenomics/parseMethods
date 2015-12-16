@@ -1,17 +1,17 @@
-"Superkingdom","Phylum","Class","Order","Family","Genus","Specie","Name","	"ti","ID1000-sam","ID150-sam","ID300-sam","ID75-sam"
-Bacteria,Firmicutes,Bacilli,Bacillales,Bacillaceae,Bacillus,Bacillus anthracis,Bacillus anthracis str. CDC 684	"568206",157496,155096,156413,157488
-Bacteria,Firmicutes,Bacilli,Bacillales,Bacillaceae,Bacillus,Bacillus anthracis,Bacillus anthracis str. Ames	"198094",1672,0,0,123
-Bacteria,Firmicutes,Bacilli,Bacillales,Bacillaceae,Bacillus,Bacillus anthracis,Bacillus anthracis str. Sterne	"260799",10,0,0,0
-Bacteria,Firmicutes,Bacilli,Bacillales,Bacillaceae,Bacillus,Bacillus anthracis,Bacillus anthracis str. H9401	"768494",0,0,0,1437
-Bacteria,Firmicutes,Bacilli,Lactobacillales,Streptococcaceae,Streptococcus,Streptococcus pneumoniae,Streptococcus pneumoniae TCH8431/19A	"525381",5556,5362,5244,5266
-Bacteria,Firmicutes,Bacilli,Lactobacillales,Streptococcaceae,Streptococcus,Streptococcus pneumoniae,Streptococcus pneumoniae ST556	"1130804",20,0,0,0
-Bacteria,Actinobacteria,Actinobacteria,Propionibacteriales,Propionibacteriaceae,Propionibacterium,Propionibacterium acnes,Propionibacterium acnes KPA171202	"267747",5544,5373,5320,5504
-Bacteria,Firmicutes,Bacilli,Lactobacillales,Lactobacillaceae,Lactobacillus,Lactobacillus crispatus,Lactobacillus crispatus ST1	"748671",0,5689,5586,5586
-Bacteria,Actinobacteria,Actinobacteria,Corynebacteriales,Mycobacteriaceae,Mycobacterium,Mycobacterium tuberculosis,Mycobacterium tuberculosis CDC1551	"83331",0,12958,12758,12946
-Bacteria,Firmicutes,Bacilli,Lactobacillales,Streptococcaceae,Streptococcus,Streptococcus anginosus,Streptococcus anginosus C238	"862971",0,5850,5648,5887
-Bacteria,Firmicutes,Bacilli,Bacillales,Staphylococcaceae,Staphylococcus,Staphylococcus epidermidis,Staphylococcus epidermidis RP62A	"176279",0,4349,4248,4314
-Bacteria,Firmicutes,Bacilli,Lactobacillales,Lactobacillaceae,Lactobacillus,Lactobacillus rhamnosus,Lactobacillus rhamnosus ATCC 8530	"1088720",0,741,624,707
-Bacteria,Actinobacteria,Actinobacteria,Propionibacteriales,Propionibacteriaceae,Propionibacterium,Propionibacterium acnes,Propionibacterium acnes 6609	"1031709",0,0,0,3
-Bacteria,Actinobacteria,Actinobacteria,Corynebacteriales,Mycobacteriaceae,Mycobacterium,Mycobacterium tuberculosis,Mycobacterium tuberculosis KZN 605	"478435",0,0,0,164
-Bacteria,Actinobacteria,Actinobacteria,Corynebacteriales,Mycobacteriaceae,Mycobacterium,Mycobacterium tuberculosis,Mycobacterium tuberculosis H37Ra	"419947",0,0,0,9
-Bacteria,Actinobacteria,Actinobacteria,Corynebacteriales,Mycobacteriaceae,Mycobacterium,Mycobacterium tuberculosis,Mycobacterium tuberculosis H37Rv	"83332",0,0,0,2
+"Superkingdom","Phylum","Class","Order","Family","Genus","Specie","Name","ti","ID1000-sam","ID150-sam","ID300-sam","ID75-sam"
+Bacteria,Firmicutes,Bacilli,Bacillales,Bacillaceae,Bacillus,Bacillus anthracis,Bacillus anthracis str. CDC 684,"568206",157496,155096,156413,157488
+Bacteria,Firmicutes,Bacilli,Bacillales,Bacillaceae,Bacillus,Bacillus anthracis,Bacillus anthracis str. Ames,"198094",1672,0,0,123
+Bacteria,Firmicutes,Bacilli,Bacillales,Bacillaceae,Bacillus,Bacillus anthracis,Bacillus anthracis str. Sterne,"260799",10,0,0,0
+Bacteria,Firmicutes,Bacilli,Bacillales,Bacillaceae,Bacillus,Bacillus anthracis,Bacillus anthracis str. H9401,"768494",0,0,0,1437
+Bacteria,Firmicutes,Bacilli,Lactobacillales,Streptococcaceae,Streptococcus,Streptococcus pneumoniae,Streptococcus pneumoniae TCH8431/19A,"525381",5556,5362,5244,5266
+Bacteria,Firmicutes,Bacilli,Lactobacillales,Streptococcaceae,Streptococcus,Streptococcus pneumoniae,Streptococcus pneumoniae ST556,"1130804",20,0,0,0
+Bacteria,Actinobacteria,Actinobacteria,Propionibacteriales,Propionibacteriaceae,Propionibacterium,Propionibacterium acnes,Propionibacterium acnes KPA171202,"267747",5544,5373,5320,5504
+Bacteria,Firmicutes,Bacilli,Lactobacillales,Lactobacillaceae,Lactobacillus,Lactobacillus crispatus,Lactobacillus crispatus ST1,"748671",0,5689,5586,5586
+Bacteria,Actinobacteria,Actinobacteria,Corynebacteriales,Mycobacteriaceae,Mycobacterium,Mycobacterium tuberculosis,Mycobacterium tuberculosis CDC1551,"83331",0,12958,12758,12946
+Bacteria,Firmicutes,Bacilli,Lactobacillales,Streptococcaceae,Streptococcus,Streptococcus anginosus,Streptococcus anginosus C238,"862971",0,5850,5648,5887
+Bacteria,Firmicutes,Bacilli,Bacillales,Staphylococcaceae,Staphylococcus,Staphylococcus epidermidis,Staphylococcus epidermidis RP62A,"176279",0,4349,4248,4314
+Bacteria,Firmicutes,Bacilli,Lactobacillales,Lactobacillaceae,Lactobacillus,Lactobacillus rhamnosus,Lactobacillus rhamnosus ATCC 8530,"1088720",0,741,624,707
+Bacteria,Actinobacteria,Actinobacteria,Propionibacteriales,Propionibacteriaceae,Propionibacterium,Propionibacterium acnes,Propionibacterium acnes 6609,"1031709",0,0,0,3
+Bacteria,Actinobacteria,Actinobacteria,Corynebacteriales,Mycobacteriaceae,Mycobacterium,Mycobacterium tuberculosis,Mycobacterium tuberculosis KZN 605,"478435",0,0,0,164
+Bacteria,Actinobacteria,Actinobacteria,Corynebacteriales,Mycobacteriaceae,Mycobacterium,Mycobacterium tuberculosis,Mycobacterium tuberculosis H37Ra,"419947",0,0,0,9
+Bacteria,Actinobacteria,Actinobacteria,Corynebacteriales,Mycobacteriaceae,Mycobacterium,Mycobacterium tuberculosis,Mycobacterium tuberculosis H37Rv,"83332",0,0,0,2
