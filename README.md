@@ -5,7 +5,7 @@
 Welcome to the parseMethods module! This module takes a directory containing output files from several metagenomics software and creates a standard table (with the full lineage and read/proportions) that can be easily imported into R for downstream analyses.
 parseMethods is part of SEPA, a modular pipeline for testing metagenomic profiling software using simulations. Currently, parseMethods can process result files from pathoscope2, metamix, sigma, metaphlan2 (under development), and constrains (metaphlan dependent)
 
-## Dependencies
+## Requirements
 
 Bash version 4 (comes with Linux and MacOSX)
 Rscript (R statistical framework) 3.0 and greater ([download here](https://www.r-project.org))
