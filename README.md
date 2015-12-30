@@ -7,7 +7,7 @@ parseMethods is part of SEPA, a modular pipeline for testing metagenomic profili
 
 ## Dependencies
 
-Bash (comes with Linux and MacOSX)
+Bash version 4 (comes with Linux and MacOSX)
 Rscript (R statistical framework) 3.0 and greater ([download here](https://www.r-project.org))
 R packages rJava, methods, xlsxjars (install from R console by issuing `install.packages(c("rJava", "methods", "xlsxjars"))`)
 
