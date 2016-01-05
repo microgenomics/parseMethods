@@ -2,6 +2,7 @@ export LANG=en_US.UTF-8
 set -e
 #####################
 #Dependences:
+#bash version 4
 #Internet Connection
 #Curl
 #R (with gtools and xlsx)
@@ -20,7 +21,6 @@ set -e
 
 workband=0
 cfileband=0
-localband=0
 statusband=0
 titogiband=0
 tifamilyband=0
@@ -34,14 +34,12 @@ do
 	"--cfile")
 		cfileband=1
 	;;
-	"--local")
-		localband=1
-	;;
 	"--tifamily")
 		tifamilyband=1
 	;;
 	"--help")
-		echo -e "Options aviable:\n --workpath path where directory tree or your files are (included requirement files).\n --cfile configuration file. \n --local all files to parsed"
+		echo -e "Options aviable:\n --workpath path where your files are (included requirement files).\n --cfile configuration file."
+		echo "requeriment files: makeCSV.R"
 		echo -e "\n to apply Perdonazo method, you must especify in the config file the parameter ABSENT=yes, the script automatically calculate corresponding data"
 		echo "if ABUNDANCE is missing in the configuration file, its equals to generate results in reads number instead percents"
 		exit
@@ -137,9 +135,6 @@ if [[ "$ABSENT" =~ "yes" ]] ; then
 fi
 #####################################################################################################################
 
-#begin the code
-if [ $((statusband)) -ge 2 ]; then
-
 ###############################					FUNCTION DECLARATION				#################################
 function TakeLineageFunction {
 	#################################################################################################################################################
@@ -208,8 +203,9 @@ function pathoscopeFunction {
 	else
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
-		Rscript ${EXECUTIONPATH}/makeCSV.R . tsv.dat pathoscope_table.csv
-		rm parsed*
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . tsv.dat pathoscope_table.csv
+		rm parsed* makeCSV.R
 		sed -i '' "s/ti.//g" pathoscope_table.csv
 		sed -i '' "s/\"\"/\"ti\"/g" pathoscope_table.csv
 		TakeLineageFunction pathoscope_table.csv
@@ -259,8 +255,9 @@ function metamixFunction {
 	else
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
-		Rscript ${EXECUTIONPATH}/makeCSV.R . tsv.dat metamix_table.csv
-		rm parsed*
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . tsv.dat metamix_table.csv
+		rm parsed* makeCSV.R
 		sed -i '' "s/ti.//g" metamix_table.csv
 		sed -i '' "s/\"\"/\"ti\"/g" metamix_table.csv
 		TakeLineageFunction metamix_table.csv
@@ -336,8 +333,9 @@ function sigmaFunction {
 	else
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
-		Rscript ${EXECUTIONPATH}/makeCSV.R . gvector.txt.dat sigma_table.csv
-		rm parsed*
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . gvector.txt.dat sigma_table.csv
+		rm parsed* makeCSV.R
 		sed -i '' "s/ti.//g" sigma_table.csv
 		sed -i '' "s/\"\"/\"ti\"/g" sigma_table.csv
 		TakeLineageFunction sigma_table.csv
@@ -354,157 +352,118 @@ function constrainsFunction {
 
 }
 
+function makeCSV {
+echo 'library(xlsx)
+library(gtools)
+
+args <-commandArgs()
+
+directory<-args[6]
+pattr<-args[7]
+outtable<-args[8]
+
+setwd(directory)
+
+#filename<-args[6]
+#filedata<-args[7]
+
+
+list_of_files <- list.files(path=directory, pattern = pattr)
+# make a list of just the patient names
+
+patient_names<-NULL
+
+for( i in 1:length(list_of_files)){
+#  patient_names[i]<-substring(list_of_files[i], 1, 6)
+  patient_names[i]<-substr(list_of_files[i],8,nchar(list_of_files[i])-15)
+}
+
+# read in each table
+
+#read_counts <- lapply(list_of_files, read.table, sep="\t", header = FALSE, skip =2)
+read_counts <- lapply(list_of_files, read.table, sep=" ", header = FALSE)
+#read_counts <- lapply(read_counts, function(x) x[, c(1,2)])
+#read_counts <- lapply(read_counts, function(x) x[complete.cases(x),])
+
+# for each table make the first col name OTU and the second the patient name
+
+for( i in 1:length(list_of_files)){
+  colnames(read_counts[[i]])<- c("ti", patient_names[i])
+}
+#print(read_counts[1])
+
+# list of lists called otu which stores the first column otu names for each dataframe
+otu<-NULL
+for( i in 1:length(list_of_files)){
+#	print(read_counts[[1]][1])
+	name<-paste("ti",as.character(read_counts[[i]][,1]))
+  otu[i]<- list(name)
+}
+
+# for each dataframe in read_counts transpose and then 
+
+read_counts <- lapply(read_counts, function(x) t(x[,2]))
+
+# add the otus back as the column name
+
+for( i in 1:length(list_of_files)){
+  read_counts[[i]]<-data.frame(read_counts[[i]])
+#  print(read_counts[[i]])
+	#print(otu[i])
+  colnames(read_counts[[i]])<-otu[[i]]
+  #print(read_counts[i])
+  read_counts[[i]]<-data.frame(patient = patient_names[i], read_counts[[i]])
+#print(paste("reaaad:",read_counts[i]))
+}
+
+# combine the different dataframes together
+otu_table <- read_counts[[1]]
+for( i in 2:length(list_of_files)){
+  otu_table <- smartbind(otu_table, read_counts[[i]], fill = 0)
+}
+
+# transpose the table back so that the microbes are the rows and the patients are the col
+
+otu_table<-t(data.matrix(otu_table))
+colnames(otu_table)<-patient_names
+otu_table<-otu_table[2:nrow(otu_table),]
+
+# remove zeroes
+otu_table_noZeroes<-otu_table[apply(otu_table, 1, function(x){ !isTRUE(all.equal(sum(x),0))}),]
+write.csv(otu_table_noZeroes,outtable)'
+}
+
 ################################################################################################################
-
-##########################					LOCAL FLAG DIRECTION					############################
-cd ${RUTAINICIAL}
-	#localband define if you have your own folder with all files (localband is specify), or the module is executed by previous module (localband isn't specify)
-	case $localband in
-		"0")
-		if [ "$GENOMESIZEBALANCE" == "" ]; then
-			echo "No root directory (or you try to execute without --local flag"
-			exit
-		fi
-			for a in $GENOMESIZEBALANCE
-			do
-				if [ -d $a ]; then
-					cd $a
-				else
-					echo "root directory ($a) tree doesn't exist"
-					exit
-				fi
-				echo "in $a"
-				for b in $COMMUNITYCOMPLEX
-				do
-					if [ -d complex_$b ]; then
-						cd complex_$b
-					else
-						echo "$b doesn't exist, check your tree directory or config file"
-						exit
-					fi
-					echo "---in complex_$b"
-					for c in $SPECIES
-					do
-						if [ -d species_$c ]; then
-								cd species_$c
-						else
-							echo "species_$c doesn't exist, check your tree directory or config file"
-						exit
-						fi
-						echo "------in species_$c"
-						for d in $ABUNDANCE
-						do
-							if [ -d abundance_$d ]; then
-								cd abundance_$d
-							else
-								echo "abundance_$d doesn't exist, check your tree directory or config file"
-								exit
-							fi
-							echo "---------in abundance_$d"
-							for e in $DOMINANCE
-							do
-								if [ -d dominance_$e ]; then
-								cd dominance_$e
-									else
-									echo "dominance_$e doesn't exist, check your tree directory or config file"
-									exit
-								fi
-								echo "------------in dominance_$e"
-								for f in $ABSENT
-								do
-									if [ -d absent_$f ]; then
-										cd absent_$f
-									else
-										echo "absent_$f doesn't exist, check your tree directory or config file"
-										exit
-									fi
-									cd absent_$f
-									echo "---------------in absent_$f"
-							
-									for g in $METHOD
-									do
-									if [ -d method_$g]; then
-										cd method_$g
-									else
-										echo "method_$g doesn't exist, check your tree directory or config file"
-										exit
-									fi
-										cd method_$g
-										echo "-----------------in method_$g"
-										case $g in
-											"PATHOSCOPE")
-												pathoscopeFunction
-											;;
-											"METAPHLAN")
-												metaphlanFunction
-			   								;;
-			   								"METAMIX")
-			   									metamixFunction
-			   								;;
-			   								"SIGMA")
-												sigmaFunction
-			   								;;
-			   								"CONSTRAINS")
-			   									constrainsFunction
-			   								;;
-			   								*)
-			   									echo "no method aviable for $METHOD"
-			   									exit
-			   								;;
-										esac
-										
-									cd ..
-									done #done g
-	
-								cd ..
-								done #done f
-	
-							cd ..
-							done #done e	
-
-						cd ..
-						done #done d
-
-					cd ..		
-					done #done c
-				cd ..
-				done #done b
-			cd ..
-			done #done a
-		;;
-		#invalid option
-		"1")
-		
-			for g in $METHOD
-			do
-				case $g in
-					"PATHOSCOPE")
-						pathoscopeFunction
-					;;
-					"METAPHLAN")
-						metaphlanFunction
-			   		;;
-			   		"METAMIX")
-			   			metamixFunction
-			   		;;
-			   		"SIGMA")
-						sigmaFunction
-			   		;;
-			   		"CONSTRAINS")
-			   			constrainsFunction
-			   		;;
-			   		*)
-			   			echo "no method aviable for $METHOD"
-			   			exit
-			   		;;
-
-				esac
-			done
-		;;
-	esac		
+#begin the code
+if [ $((statusband)) -ge 2 ]; then
+	cd ${RUTAINICIAL}
+	for g in $METHOD
+	do
+		case $g in
+			"PATHOSCOPE")
+				pathoscopeFunction
+			;;
+			"METAPHLAN")
+				metaphlanFunction
+	   		;;
+	   		"METAMIX")
+	   			metamixFunction
+	   		;;
+	   		"SIGMA")
+				sigmaFunction
+	   		;;
+	   		"CONSTRAINS")
+	   			constrainsFunction
+	   		;;
+	   		*)
+	   			echo "no method aviable for $METHOD"
+	   			exit
+	   		;;
+		esac
+	done
 
 else
 	echo "Invalid or Missing Parameters, print --help to see the options"
-	echo "Usage: bash Parse.bash --workpath [files directory] --cfile [config file] --local (only if you use this module alone)"
+	echo "Usage: bash parseMethods.bash --workpath [files directory] --cfile [config file]"
 	exit
 fi
