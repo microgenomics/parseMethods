@@ -10,8 +10,8 @@ set -e
 #NOTES
 #pathoscope: pathoscope and metamix use the tsv extension, don't merge this files in same folder
 #sigma: we assume when you worked with sigma, the names of the each fasta folder were the same that fasta gi (consult the script prepare sigmaDB if you don't have this format).
-#metaphlan:we working on this
-#constrains:metaphlan dependent
+#metaphlan: the results must have .dat exetension, you can change the actual extension for .dat and the script works anyway
+#constrains:not yet
 #metamix:same pathoscope note
 #PERDONAZO METHOD: this method consist in change the mayor reads assigned in specific tax id to a defined permament tax id, getting by consequence the correct analysis when its compare in real data.
 #to apply this change the family of tax id must be the same.
@@ -38,8 +38,8 @@ do
 		tifamilyband=1
 	;;
 	"--help")
-		echo -e "Options aviable:\n --workpath path where your files are (included requirement files).\n --cfile configuration file."
-		echo "requeriment files: makeCSV.R"
+		echo -e "Options aviable:\n --workpath path where your files are.\n --cfile configuration file."
+		echo "make sure you have R (with gtools and xlsx)"
 		echo -e "\n to apply Perdonazo method, you must especify in the config file the parameter ABSENT=yes, the script automatically calculate corresponding data"
 		echo "if ABUNDANCE is missing in the configuration file, its equals to generate results in reads number instead percents"
 		exit
@@ -174,11 +174,8 @@ function pathoscopeFunction {
 	for tsvfile in `ls -1 *.tsv`
 	do
 		#if to recognize if the files for post analysis are in reads number or percent (abundance required)
-		if [ "$ABUNDANCE" == "" ]; then			
-			awk 'BEGIN{FS="|"}{print $2}' $tsvfile |awk -v abu=$ABUNDANCE '{if(NR>2)print $1, $4}' > pathoids.dat
-		else
-			awk 'BEGIN{FS="|"}{print $2}' $tsvfile |awk -v abu=$ABUNDANCE '{if(NR>2)print $1, ($4/(abu*2))*100}' > pathoids.dat
-		fi					
+			awk 'BEGIN{FS="|"}{print $2}' $tsvfile |awk '{if(NR>2)print $1, $4}' > pathoids.dat
+				
 		##########PERDONAZO METHOD FOR ABSENTS##############
 		if [ "$ABSENT" == "yes" ]; then
 			timayor=`awk 'BEGIN{mayor=-1;ti=1}{if($2>mayor){ti=$1;mayor=$2}}END{print ti}' pathoids.dat`
@@ -222,12 +219,8 @@ function metamixFunction {
 	do
 		awk 'BEGIN{FS="\""}{if(NR>1)print $4}' $tsvfile > taxidasigned
 				
-		#if to recognize if the files for post analysis are in reads number or percent (abundance required)
-		if [ "$ABUNDANCE" == "" ]; then
-			awk 'BEGIN{FS="\""}{if(NR>1)print $7}' $tsvfile |awk -v abu=$ABUNDANCE  '{print $1}' > readsasigned
-		else
-			awk 'BEGIN{FS="\""}{if(NR>1)print $7}' $tsvfile |awk -v abu=$ABUNDANCE  '{print ($1/abu)*100}' > readsasigned
-		fi		
+			awk 'BEGIN{FS="\""}{if(NR>1)print $7}' $tsvfile |awk '{print $1}' > readsasigned
+
 		paste taxidasigned readsasigned > metamixids.dat
 		
 		rm taxidasigned readsasigned
@@ -272,12 +265,9 @@ function sigmaFunction {
 	for gvector in `ls -1 *gvector.txt`
 	do
 		#to recognize if the files for post analysis are in reads number or percent (abundance required)
-		if [ "$ABUNDANCE" == "" ]; then
 			mappedread=`awk '{if($1=="+"){print $4-2}}' $gvector`
 			awk -v map=$mappedread '{if($1=="*"){printf "%d %d\n",$2, ($3*map)/100}}' $gvector > tmp.dat
-		else
-			awk '{if($1=="*"){print $2, $3}}' $gvector > tmp.dat
-		fi
+
 		cp tmp.dat sigmaids.dat
 		awk '{print $1}' tmp.dat > tmp2.dat
 		for n in `awk '{print $1}' tmp.dat`
@@ -344,7 +334,38 @@ function sigmaFunction {
 }
 
 function metaphlanFunction {
-	echo "Metaphlan not yet :D"
+
+for datfile in `ls -1 *.dat`
+do
+		#if to recognize if the files for post analysis are in reads number or percent (abundance required)
+		if [ "$ABUNDANCE" == "" ]; then			
+			sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print $2}' | sed '1!G;h;$!d' > quantities
+		else
+			sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print ($2*abu)/100}' | sed '1!G;h;$!d' > quantities
+		fi
+
+		sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $3, $6, $9, $12, $15, $18, $22}'	> sname
+		paste sname quantities > metaphlanid.dat
+		rm sname quantities
+		
+		########################################
+		mv metaphlanid.dat parsed_$datfile.dat
+		echo "$datfile file formated"
+	#	http://www.statmethods.net/management/merging.html
+done
+
+total=`ls -1 *.dat.dat |wc -l`
+if [ $((total)) -le 1 ]; then
+	echo "need at least 2 files to make a table"
+else
+	#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
+	#parameters: work_directory pattern_file name_out_table
+	makeCSVm2 > makeCSV.R
+	Rscript makeCSV.R . dat.dat metaphlan_table.csv
+	rm parsed* makeCSV.R
+	sed -i '' "s/ti.//g" metaphlan_table.csv
+	sed -i '' "s/\"\"/\"ti\"/g" metaphlan_table.csv
+fi
 }
 
 function constrainsFunction {
@@ -353,6 +374,87 @@ function constrainsFunction {
 }
 
 function makeCSV {
+echo 'library(xlsx)
+library(gtools)
+
+args <-commandArgs()
+
+directory<-args[6]
+pattr<-args[7]
+outtable<-args[8]
+
+setwd(directory)
+
+#filename<-args[6]
+#filedata<-args[7]
+
+
+list_of_files <- list.files(path=directory, pattern = pattr)
+# make a list of just the patient names
+
+patient_names<-NULL
+
+for( i in 1:length(list_of_files)){
+#  patient_names[i]<-substring(list_of_files[i], 1, 6)
+  patient_names[i]<-substr(list_of_files[i],8,nchar(list_of_files[i])-15)
+}
+
+# read in each table
+
+#read_counts <- lapply(list_of_files, read.table, sep="\t", header = FALSE, skip =2)
+read_counts <- lapply(list_of_files, read.table, sep=" ", header = FALSE)
+#read_counts <- lapply(read_counts, function(x) x[, c(1,2)])
+#read_counts <- lapply(read_counts, function(x) x[complete.cases(x),])
+
+# for each table make the first col name OTU and the second the patient name
+
+for( i in 1:length(list_of_files)){
+  colnames(read_counts[[i]])<- c("ti", patient_names[i])
+}
+#print(read_counts[1])
+
+# list of lists called otu which stores the first column otu names for each dataframe
+otu<-NULL
+for( i in 1:length(list_of_files)){
+#	print(read_counts[[1]][1])
+	name<-paste("ti",as.character(read_counts[[i]][,1]))
+  otu[i]<- list(name)
+}
+
+# for each dataframe in read_counts transpose and then 
+
+read_counts <- lapply(read_counts, function(x) t(x[,2]))
+
+# add the otus back as the column name
+
+for( i in 1:length(list_of_files)){
+  read_counts[[i]]<-data.frame(read_counts[[i]])
+#  print(read_counts[[i]])
+	#print(otu[i])
+  colnames(read_counts[[i]])<-otu[[i]]
+  #print(read_counts[i])
+  read_counts[[i]]<-data.frame(patient = patient_names[i], read_counts[[i]])
+#print(paste("reaaad:",read_counts[i]))
+}
+
+# combine the different dataframes together
+otu_table <- read_counts[[1]]
+for( i in 2:length(list_of_files)){
+  otu_table <- smartbind(otu_table, read_counts[[i]], fill = 0)
+}
+
+# transpose the table back so that the microbes are the rows and the patients are the col
+
+otu_table<-t(data.matrix(otu_table))
+colnames(otu_table)<-patient_names
+otu_table<-otu_table[2:nrow(otu_table),]
+
+# remove zeroes
+otu_table_noZeroes<-otu_table[apply(otu_table, 1, function(x){ !isTRUE(all.equal(sum(x),0))}),]
+write.csv(otu_table_noZeroes,outtable)'
+}
+
+function makeCSVm2 {
 echo 'library(xlsx)
 library(gtools)
 
