@@ -363,7 +363,7 @@ do
 		rm sname quantities
 		
 		########################################
-		datfile=`echo "$tsvfile" |sed "s/,/./g"`
+		datfile=`echo "$datfile" |sed "s/,/./g"`
 		mv metaphlanid.dat parsed_$datfile.dat
 		echo "$datfile file formated"
 done
