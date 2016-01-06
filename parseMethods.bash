@@ -407,7 +407,7 @@ patient_names<-NULL
 
 for( i in 1:length(list_of_files)){
 #  patient_names[i]<-substring(list_of_files[i], 1, 6)
-  patient_names[i]<-substr(list_of_files[i],1,nchar(list_of_files[i])-8)
+  patient_names[i]<-substr(list_of_files[i],1,nchar(list_of_files[i])-4)
 }
 
 # read in each table
