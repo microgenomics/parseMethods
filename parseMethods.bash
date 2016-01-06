@@ -158,7 +158,12 @@ function TakeLineageFunction {
 			done
 			name=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml` #be careful with \n
 			lineage=`awk 'BEGIN{FS="[<|>]";prev=""}{if($2=="ScientificName"){prev=$3}if($3=="superkingdom"){printf "%s,",prev}if($3=="phylum"){printf "%s,",prev}if($3=="class"){printf "%s,",prev}if($3=="order"){printf "%s,", prev}if($3=="family"){printf "%s,",prev}if($3=="genus"){printf "%s,",prev}if($3=="species"){printf "%s,",prev}}' tmp.xml`
-			echo "$lineage,$name," >> TaxonomyPredictionMatrix.csv
+			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "yes"}else{print "no"}}'`
+			if [ "$cand" == "yes" ]; then
+				echo "unknow,unknow,unknow,unknow,unknow,unknow,unknow,$name," >> TaxonomyPredictionMatrix.csv
+			else
+				echo "$lineage$name," >> TaxonomyPredictionMatrix.csv
+			fi
 			rm tmp.xml
 		done
 		paste -d '\0' TaxonomyPredictionMatrix.csv $Matrix > tmp.csv 
@@ -194,7 +199,7 @@ function pathoscopeFunction {
 			fi
 		fi
 		########################################
-												
+		tsvfile=`echo "$tsvfile" |sed "s/,/./g"`
 		mv pathoids.dat parsed_$tsvfile.dat
 		echo "$tsvfile file formated"
 	done	
@@ -244,7 +249,7 @@ function metamixFunction {
 			fi
 		fi
 		########################################
-							
+		tsvfile=`echo "$tsvfile" |sed "s/,/./g"`
 		mv metamixids.dat parsed_$tsvfile.dat
 	done		   			
 		total=`ls -1 *.tsv.dat |wc -l`
@@ -358,6 +363,7 @@ do
 		rm sname quantities
 		
 		########################################
+		datfile=`echo "$tsvfile" |sed "s/,/./g"`
 		mv metaphlanid.dat parsed_$datfile.dat
 		echo "$datfile file formated"
 done
