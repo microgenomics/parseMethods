@@ -144,17 +144,21 @@ function TakeLineageFunction {
 	Matrix=$1
 	if [ -f $Matrix ]; then
 		#print the headers for the csv
-		echo '"Superkingdom","Phylum","Class","Order","Family","Genus","Specie","Name",' >> TaxonomyPredictionMatrix.csv 
-		for ti in `awk 'BEGIN{FS="\""}{if(NR>1){print $2}}' $Matrix`
+		echo 'Kingdom,Phylum,Class,Order,Family,Genus,Species,Name,' >> TaxonomyPredictionMatrix.csv 
+		for ti in `awk 'BEGIN{FS=","}{if(NR>1){print $1}}' $Matrix`
 		do
 			echo "fetching lineage from ti: $ti"
 			 #warning, no error tolerance (I never get the error for cover the case)
 			 #fetch the ti by ncbi api
-			curl -s "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id=$ti" > tmp.xml
+			nofetch=""
+			while [ "$nofetch" == "" ]
+			do
+				curl -s "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id=$ti" > tmp.xml
+				nofetch=`cat tmp.xml`
+			done
 			name=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml` #be careful with \n
 			lineage=`awk 'BEGIN{FS="[<|>]";prev=""}{if($2=="ScientificName"){prev=$3}if($3=="superkingdom"){printf "%s,",prev}if($3=="phylum"){printf "%s,",prev}if($3=="class"){printf "%s,",prev}if($3=="order"){printf "%s,", prev}if($3=="family"){printf "%s,",prev}if($3=="genus"){printf "%s,",prev}if($3=="species"){printf "%s,",prev}}' tmp.xml`
-
-			echo "$lineage$name," >> TaxonomyPredictionMatrix.csv
+			echo "$lineage,$name," >> TaxonomyPredictionMatrix.csv
 			rm tmp.xml
 		done
 		paste -d '\0' TaxonomyPredictionMatrix.csv $Matrix > tmp.csv 
@@ -205,6 +209,7 @@ function pathoscopeFunction {
 		rm parsed* makeCSV.R
 		sed -i '' "s/ti.//g" pathoscope_table.csv
 		sed -i '' "s/\"\"/\"ti\"/g" pathoscope_table.csv
+		sed -i '' "s/\"//g" pathoscope_table.csv
 		TakeLineageFunction pathoscope_table.csv
 
 	fi
@@ -253,6 +258,7 @@ function metamixFunction {
 		rm parsed* makeCSV.R
 		sed -i '' "s/ti.//g" metamix_table.csv
 		sed -i '' "s/\"\"/\"ti\"/g" metamix_table.csv
+		sed -i '' "s/\"//g" metamix_table.csv
 		TakeLineageFunction metamix_table.csv
 	fi
 }
@@ -328,6 +334,7 @@ function sigmaFunction {
 		rm parsed* makeCSV.R
 		sed -i '' "s/ti.//g" sigma_table.csv
 		sed -i '' "s/\"\"/\"ti\"/g" sigma_table.csv
+		sed -i '' "s/\"//g" sigma_table.csv
 		TakeLineageFunction sigma_table.csv
 	fi
 	
@@ -344,14 +351,14 @@ do
 			sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print ($2*abu)/100}' | sed '1!G;h;$!d' > quantities
 		fi
 
-		sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $3, $6, $9, $12, $15, $18, $22}'	> sname
-		paste sname quantities > metaphlanid.dat
+		sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $3, $6, $9, $12, $15, $18, $22}' > sname
+		#sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $22}' > sname
+		paste -d '_' sname quantities > metaphlanid.dat
 		rm sname quantities
 		
 		########################################
 		mv metaphlanid.dat parsed_$datfile.dat
 		echo "$datfile file formated"
-	#	http://www.statmethods.net/management/merging.html
 done
 
 total=`ls -1 *.dat.dat |wc -l`
@@ -360,11 +367,14 @@ if [ $((total)) -le 1 ]; then
 else
 	#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 	#parameters: work_directory pattern_file name_out_table
-	makeCSVm2 > makeCSV.R
-	Rscript makeCSV.R . dat.dat metaphlan_table.csv
-	rm parsed* makeCSV.R
-	sed -i '' "s/ti.//g" metaphlan_table.csv
-	sed -i '' "s/\"\"/\"ti\"/g" metaphlan_table.csv
+	makeCSV > makeCSV.R
+	Rscript makeCSV.R . .dat.dat metaphlan_table.csv
+	rm makeCSV.R parsed*
+	sed -i '' "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species/g" metaphlan_table.csv
+	sed -i '' "s/\"//g" metaphlan_table.csv
+	awk 'BEGIN{FS=","}{gsub(/\./,",",$1);gsub(" ",",",$0);print $0}' metaphlan_table.csv > tmpcsv
+	rm metaphlan_table.csv
+	mv tmpcsv metaphlan_table.csv
 fi
 }
 
@@ -396,30 +406,51 @@ patient_names<-NULL
 
 for( i in 1:length(list_of_files)){
 #  patient_names[i]<-substring(list_of_files[i], 1, 6)
-  patient_names[i]<-substr(list_of_files[i],8,nchar(list_of_files[i])-15)
+  patient_names[i]<-substr(list_of_files[i],1,nchar(list_of_files[i])-8)
 }
 
 # read in each table
 
 #read_counts <- lapply(list_of_files, read.table, sep="\t", header = FALSE, skip =2)
-read_counts <- lapply(list_of_files, read.table, sep=" ", header = FALSE)
+if(pattr == ".dat.dat"){
+	read_counts <- lapply(list_of_files, read.table, sep="_", header = FALSE)
+}else{
+	read_counts <- lapply(list_of_files, read.table, sep=" ", header = FALSE)
 #read_counts <- lapply(read_counts, function(x) x[, c(1,2)])
 #read_counts <- lapply(read_counts, function(x) x[complete.cases(x),])
+}
+
 
 # for each table make the first col name OTU and the second the patient name
 
-for( i in 1:length(list_of_files)){
-  colnames(read_counts[[i]])<- c("ti", patient_names[i])
+if(pattr == ".dat.dat"){
+	for( i in 1:length(list_of_files)){
+  		colnames(read_counts[[i]])<- c(patient_names[i])
+  		#print(read_counts[i])
+	}
+}else{
+	for( i in 1:length(list_of_files)){
+  		colnames(read_counts[[i]])<- c("ti", patient_names[i])
+	}
 }
-#print(read_counts[1])
 
 # list of lists called otu which stores the first column otu names for each dataframe
 otu<-NULL
-for( i in 1:length(list_of_files)){
-#	print(read_counts[[1]][1])
-	name<-paste("ti",as.character(read_counts[[i]][,1]))
-  otu[i]<- list(name)
+
+if (pattr == ".dat.dat"){
+	for( i in 1:length(list_of_files)){
+	name<-paste(as.character(read_counts[[i]][,1]))
+  	otu[i]<- list(name)
+  	#print(otu[i])
 }
+
+}else{
+	for( i in 1:length(list_of_files)){
+	name<-paste("ti",as.character(read_counts[[i]][,1]))
+    otu[i]<- list(name)
+	}
+}
+
 
 # for each dataframe in read_counts transpose and then 
 
@@ -451,89 +482,10 @@ otu_table<-otu_table[2:nrow(otu_table),]
 
 # remove zeroes
 otu_table_noZeroes<-otu_table[apply(otu_table, 1, function(x){ !isTRUE(all.equal(sum(x),0))}),]
+#print(otu_table_noZeroes[,1])
 write.csv(otu_table_noZeroes,outtable)'
 }
 
-function makeCSVm2 {
-echo 'library(xlsx)
-library(gtools)
-
-args <-commandArgs()
-
-directory<-args[6]
-pattr<-args[7]
-outtable<-args[8]
-
-setwd(directory)
-
-#filename<-args[6]
-#filedata<-args[7]
-
-
-list_of_files <- list.files(path=directory, pattern = pattr)
-# make a list of just the patient names
-
-patient_names<-NULL
-
-for( i in 1:length(list_of_files)){
-#  patient_names[i]<-substring(list_of_files[i], 1, 6)
-  patient_names[i]<-substr(list_of_files[i],8,nchar(list_of_files[i])-15)
-}
-
-# read in each table
-
-#read_counts <- lapply(list_of_files, read.table, sep="\t", header = FALSE, skip =2)
-read_counts <- lapply(list_of_files, read.table, sep=" ", header = FALSE)
-#read_counts <- lapply(read_counts, function(x) x[, c(1,2)])
-#read_counts <- lapply(read_counts, function(x) x[complete.cases(x),])
-
-# for each table make the first col name OTU and the second the patient name
-
-for( i in 1:length(list_of_files)){
-  colnames(read_counts[[i]])<- c("ti", patient_names[i])
-}
-#print(read_counts[1])
-
-# list of lists called otu which stores the first column otu names for each dataframe
-otu<-NULL
-for( i in 1:length(list_of_files)){
-#	print(read_counts[[1]][1])
-	name<-paste("ti",as.character(read_counts[[i]][,1]))
-  otu[i]<- list(name)
-}
-
-# for each dataframe in read_counts transpose and then 
-
-read_counts <- lapply(read_counts, function(x) t(x[,2]))
-
-# add the otus back as the column name
-
-for( i in 1:length(list_of_files)){
-  read_counts[[i]]<-data.frame(read_counts[[i]])
-#  print(read_counts[[i]])
-	#print(otu[i])
-  colnames(read_counts[[i]])<-otu[[i]]
-  #print(read_counts[i])
-  read_counts[[i]]<-data.frame(patient = patient_names[i], read_counts[[i]])
-#print(paste("reaaad:",read_counts[i]))
-}
-
-# combine the different dataframes together
-otu_table <- read_counts[[1]]
-for( i in 2:length(list_of_files)){
-  otu_table <- smartbind(otu_table, read_counts[[i]], fill = 0)
-}
-
-# transpose the table back so that the microbes are the rows and the patients are the col
-
-otu_table<-t(data.matrix(otu_table))
-colnames(otu_table)<-patient_names
-otu_table<-otu_table[2:nrow(otu_table),]
-
-# remove zeroes
-otu_table_noZeroes<-otu_table[apply(otu_table, 1, function(x){ !isTRUE(all.equal(sum(x),0))}),]
-write.csv(otu_table_noZeroes,outtable)'
-}
 
 ################################################################################################################
 #begin the code
