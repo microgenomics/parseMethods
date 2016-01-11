@@ -266,7 +266,7 @@ function pathoscopeFunction {
 		sed -i'' "s/ti.//g" pathoscope_table.csv
 		sed -i'' "s/\"\"/\"ti\"/g" pathoscope_table.csv
 		sed -i'' "s/\"//g" pathoscope_table.csv
-		TakeLineageFunction pathoscope_table.csv
+		#TakeLineageFunction pathoscope_table.csv
 
 	fi
 }
