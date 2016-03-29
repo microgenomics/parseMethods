@@ -159,7 +159,57 @@ function TakeLineageFunction {
 				nofetch=`cat tmp.xml`
 			done
 			name=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml` #be careful with \n
-			lineage=`awk 'BEGIN{FS="[<|>]";prev=""}{if($2=="ScientificName"){prev=$3}if($3=="superkingdom"){printf "%s,",prev}if($3=="phylum"){printf "%s,",prev}if($3=="class"){printf "%s,",prev}if($3=="order"){printf "%s,", prev}if($3=="family"){printf "%s,",prev}if($3=="genus"){printf "%s,",prev}if($3=="species"){printf "%s,",prev}}' tmp.xml`
+			awk 'BEGIN{FS="[<|>]";prev=""}{if($2=="ScientificName"){prev=$3}if($3=="superkingdom"){print prev > "superk"}if($3=="phylum"){print prev > "phy"}if($3=="class"){print prev > "class"}if($3=="order"){print prev > "ord"}if($3=="family"){print prev > "fam"}if($3=="genus"){print prev > "gen"}if($3=="species"){print prev > "spec"}}' tmp.xml
+			lineage=""
+
+			if [ -f superk ];then
+				lineage=`cat superk`
+				lineage=`echo "$lineage,"`				
+			else
+				lineage="unknow,"
+			fi
+
+			if [ -f phy ];then
+				phyname=`cat phy`
+				lineage=`echo "$lineage$phyname,"`
+			else
+				lineage=`echo "$lineage""unknow,"`
+			fi
+
+			if [ -f class ];then
+				classname=`cat class`
+				lineage=`echo "$lineage$classname,"`
+			else
+				lineage=`echo "$lineage""unknow,"`
+			fi
+
+			if [ -f ord ];then
+				ordername=`cat ord`
+				lineage=`echo "$lineage$ordername,"`
+			else
+				lineage=`echo "$lineage""unknow,"`
+			fi
+
+			if [ -f fam ];then
+				famname=`cat fam`
+				lineage=`echo "$lineage$famname,"`
+			else
+				lineage=`echo "$lineage""unknow,"`
+			fi
+
+			if [ -f gen ];then
+				genname=`cat gen`
+				lineage=`echo "$lineage$genname,"`
+			else
+				lineage=`echo "$lineage""unknow,"`
+			fi
+
+			if [ -f spec ];then
+				specname=`cat spec`
+				lineage=`echo "$lineage$specname,"`
+			else
+				lineage=`echo "$lineage""unknow,"`
+			fi
 			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "yes"}else{print "no"}}'`
 			if [ "$cand" == "yes" ]; then
 				echo "unknow,unknow,unknow,unknow,unknow,unknow,unknow,$name," >> TaxonomyPredictionMatrix.csv
@@ -167,6 +217,7 @@ function TakeLineageFunction {
 				echo "$lineage$name," >> TaxonomyPredictionMatrix.csv
 			fi
 			rm tmp.xml
+			rm -f superk phy class ord fam gen spec
 		done
 		paste -d '\0' TaxonomyPredictionMatrix.csv $Matrix > tmp.csv 
 		rm TaxonomyPredictionMatrix.csv $Matrix
@@ -214,9 +265,9 @@ function pathoscopeFunction {
 		makeCSV > makeCSV.R
 		Rscript makeCSV.R . tsv.dat pathoscope_table.csv
 		rm parsed* makeCSV.R
-		sed -i '' "s/ti.//g" pathoscope_table.csv
-		sed -i '' "s/\"\"/\"ti\"/g" pathoscope_table.csv
-		sed -i '' "s/\"//g" pathoscope_table.csv
+		sed -i'' "s/ti.//g" pathoscope_table.csv
+		sed -i'' "s/\"\"/\"ti\"/g" pathoscope_table.csv
+		sed -i'' "s/\"//g" pathoscope_table.csv
 		TakeLineageFunction pathoscope_table.csv
 
 	fi
@@ -314,9 +365,9 @@ function metamixFunction {
 		makeCSV > makeCSV.R
 		Rscript makeCSV.R . tsv.dat metamix_table.csv
 		rm parsed* makeCSV.R
-		sed -i '' "s/ti.//g" metamix_table.csv
-		sed -i '' "s/\"\"/\"ti\"/g" metamix_table.csv
-		sed -i '' "s/\"//g" metamix_table.csv
+		sed -i'' "s/ti.//g" metamix_table.csv
+		sed -i'' "s/\"\"/\"ti\"/g" metamix_table.csv
+		sed -i'' "s/\"//g" metamix_table.csv
 		TakeLineageFunction metamix_table.csv
 	fi
 }
@@ -380,9 +431,9 @@ function sigmaFunction {
 		makeCSV > makeCSV.R
 		Rscript makeCSV.R . gvector.txt.dat sigma_table.csv
 		rm parsed* makeCSV.R
-		sed -i '' "s/ti.//g" sigma_table.csv
-		sed -i '' "s/\"\"/\"ti\"/g" sigma_table.csv
-		sed -i '' "s/\"//g" sigma_table.csv
+		sed -i'' "s/ti.//g" sigma_table.csv
+		sed -i'' "s/\"\"/\"ti\"/g" sigma_table.csv
+		sed -i'' "s/\"//g" sigma_table.csv
 		TakeLineageFunction sigma_table.csv
 	fi
 	
