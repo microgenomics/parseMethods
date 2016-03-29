@@ -1,5 +1,8 @@
-export LANG=en_US.UTF-8
-set -e
+if [[ "$@" =~ "--debug" ]]; then
+	set -ex
+else
+	set -e
+fi
 #####################
 #Dependences:
 #bash version 4
@@ -8,13 +11,11 @@ set -e
 #R (with gtools and xlsx)
 
 #NOTES
-#pathoscope: pathoscope and metamix use the tsv extension, don't merge this files in same folder
+#pathoscope: pathoscope and metamix use the tsv extension, so, it will be recognize in form pathoscope<some name>.tsv
 #sigma: we assume when you worked with sigma, the names of the each fasta folder were the same that fasta gi (consult the script prepare sigmaDB if you don't have this format).
 #metaphlan: the results must have .dat exetension, you can change the actual extension for .dat and the script works anyway
-#constrains:not yet
-#metamix:same pathoscope note
-#PERDONAZO METHOD: this method consist in change the mayor reads assigned in specific tax id to a defined permament tax id, getting by consequence the correct analysis when its compare in real data.
-#to apply this change the family of tax id must be the same.
+#metamix: pathoscope and metamix use the tsv extension, so, it will be recognize in form metamix<some name>.tsv
+#PERDONAZO METHOD: this method consist in change the mayor reads assigned in specific tax id to a defined permament tax id (while they belong the same family), getting by consequence the correct analysis when its compare in real data.
 
 #####################################################################################################################
 #####################					PARSE PARAMETERS SECTION			#########################################
@@ -38,10 +39,12 @@ do
 		tifamilyband=1
 	;;
 	"--help")
-		echo -e "Options aviable:\n --workpath path where your files are.\n --cfile configuration file."
+		echo "Options aviable:"
+		echo "--workpath path where your files are"
+		echo "--cfile configuration file"
 		echo "make sure you have R (with gtools and xlsx)"
 		echo -e "\n to apply Perdonazo method, you must especify in the config file the parameter ABSENT=yes, the script automatically calculate corresponding data"
-		echo "if ABUNDANCE is missing in the configuration file, its equals to generate results in reads number instead percents"
+		echo "if ABUNDANCE is missing in the configuration file, metaphlan results will write in percent (default)"
 		exit
 	;;
 	*)
@@ -59,7 +62,6 @@ do
 				case $Pname in
 					"GENOMESIZEBALANCE")
 						GENOMESIZEBALANCE=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`
-						#echo "${parameters[$i]}"								
 					;;
 					"COMMUNITYCOMPLEX")
 						COMMUNITYCOMPLEX=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
@@ -76,17 +78,8 @@ do
 					"READSIZE")
 						READSIZE=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
 					;;
-					"ABSENT")
-						ABSENT=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
 					"METHOD")
 						METHOD=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
-					"permanent")
-						permanent=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
-					"tipermanent")
-						tipermanent=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
 					;;
 					"CORES")
 						CORES=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
@@ -94,21 +87,30 @@ do
 					"THREADS")
 						THREADS=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
 					;;
-					"METASIMFOLDER")
-						METASIMFOLDER=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
-					"MUMERPATH")
-						MUMERPATH=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
 					"PATHOSCOPEHOME")
 						PATHOSCOPEHOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
 					;;
 					"SIGMAHOME")
 						SIGMAHOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
 					;;
-					"METAMIXHOME")
-						METAMIXHOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
+					"BLASTHOME")
+						BLASTHOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
 					;;
+					"METAPHLAN2HOME")
+						METAPHLAN2HOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
+					;;
+					"CONSTRAINSHOME")
+						CONSTRAINSHOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
+					;;
+					"SAMTOOLSHOME")
+						SAMTOOLSHOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`
+					;;
+					"BOWTIE2HOME")
+						BOWTIE2HOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`
+					;;
+					"KRAKENHOME")
+						KRAKENHOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`
+					;;					
 				esac
 			done
 			statusband=$((statusband+1))
@@ -180,10 +182,10 @@ function pathoscopeFunction {
 	#this function take the pathoscope results (tsv file), and parse it to leave only the tax id and number of mapped reads (% mapped reads if you specify an abundance in config file)
 	###################################################################################################################################################################################
 
-	for tsvfile in `ls -1 *.tsv`
+	for tsvfile in `ls -1 pathoscope*.tsv`
 	do
 		#if to recognize if the files for post analysis are in reads number or percent (abundance required)
-			awk 'BEGIN{FS="|"}{print $2}' $tsvfile |awk '{if(NR>2)print $1, $4}' > pathoids.dat
+		awk 'BEGIN{FS="|"}{print $2}' $tsvfile |awk '{if(NR>2)print $1, $4}' > pathoids.dat
 				
 		##########PERDONAZO METHOD FOR ABSENTS##############
 		if [ "$ABSENT" == "yes" ]; then
@@ -219,13 +221,64 @@ function pathoscopeFunction {
 
 	fi
 }
+function metaphlanFunction {
 
+for datfile in `ls -1 *.dat`
+do
+		#if to recognize if the files for post analysis are in reads number or percent (abundance required)
+		if [ "$ABUNDANCE" == "" ]; then			
+			sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print $2}' | sed '1!G;h;$!d' > quantities
+		else
+			#we assuming that abundance is by paired end reads
+			sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print ($2*(abu*2))/100}' | sed '1!G;h;$!d' > quantities
+		fi
+
+		sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $3, $6, $9, $12, $15, $18, $22}' > sname
+		#sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $22}' > sname
+		paste -d '_' sname quantities > metaphlanid.dat
+		rm sname quantities
+		
+		########################################
+		datfile=`echo "$datfile" |sed "s/,/./g"`
+		mv metaphlanid.dat parsed_$datfile.dat
+		echo "$datfile file formated"
+		
+		if [ "$ABSENT" == "yes" ]; then			
+			timayor=`awk 'BEGIN{mayor=-1;ti=1}{if($2>mayor){ti=$1;mayor=$2}}END{print ti}' parsed_$datfile.dat`
+			#make sure you have tifamily.dat
+			family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
+									
+			if [ "$family" == "$FAMILYPERMANENT" ]; then
+				sed -i "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" metamixids.dat
+				echo "--------------------perdonazo in $tsvfile: yes"
+			else
+				echo "--------------------perdonazo in $tsvfile: no"
+			fi
+		fi
+done
+
+total=`ls -1 *.dat.dat |wc -l`
+if [ $((total)) -le 1 ]; then
+	echo "need at least 2 files to make a table"
+else
+	#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
+	#parameters: work_directory pattern_file name_out_table
+	makeCSV > makeCSV.R
+	Rscript makeCSV.R . .dat.dat metaphlan_table.csv
+	rm makeCSV.R parsed*
+	sed -i '' "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species/g" metaphlan_table.csv
+	sed -i '' "s/\"//g" metaphlan_table.csv
+	awk 'BEGIN{FS=","}{gsub(/\./,",",$1);gsub(" ",",",$0);print $0}' metaphlan_table.csv > tmpcsv
+	rm metaphlan_table.csv
+	mv tmpcsv metaphlan_table.csv
+fi
+}
 function metamixFunction {
 	###################################################################################################################################################################################
 	#this function take the metamix results (tsv file), and parse it to leave only the tax id and number of mapped reads (% mapped reads if you specify an abundance in config file)
 	###################################################################################################################################################################################
 
-	for tsvfile in `ls -1 *.tsv`
+	for tsvfile in `ls -1 metamix*.tsv`
 	do
 		awk 'BEGIN{FS="\""}{if(NR>1)print $4}' $tsvfile > taxidasigned
 				
@@ -270,7 +323,7 @@ function metamixFunction {
 
 function sigmaFunction {
 	#####################################################################################################################################################
-	#this function take the pathoscope results (gvector.txt file), and parse it to leave only the tax id (fetch ti by gi is necessary in this function)
+	#this function take the sigma results (gvector.txt file), and parse it to leave only the tax id (fetch ti by gi is necessary in this function)
 	#####################################################################################################################################################
 
 	for gvector in `ls -1 *gvector.txt`
@@ -278,16 +331,6 @@ function sigmaFunction {
 		#to recognize if the files for post analysis are in reads number or percent (abundance required)
 			mappedread=`awk '{if($1=="+"){print $4-2}}' $gvector`
 			awk -v map=$mappedread '{if($1=="*"){printf "%d %d\n",$2, ($3*map)/100}}' $gvector > tmp.dat
-
-		cp tmp.dat sigmaids.dat
-		awk '{print $1}' tmp.dat > tmp2.dat
-		for n in `awk '{print $1}' tmp.dat`
-		do
-			sigmagi=`awk -v target=$n '{if($1=="@"){if($2==target){print $3}}}' $gvector`
-			sed -i '' "s/[[:<:]]$n[[:>:]]/$sigmagi/g" tmp2.dat #\< \> for whole word search
-		done
-		paste tmp.dat tmp2.dat |awk '{print $3, $2}' > sigmaids.dat
-		rm tmp*
 
 		##########PERDONAZO METHOD##############
 
@@ -345,51 +388,74 @@ function sigmaFunction {
 	
 }
 
-function metaphlanFunction {
-
-for datfile in `ls -1 *.dat`
-do
-		#if to recognize if the files for post analysis are in reads number or percent (abundance required)
-		if [ "$ABUNDANCE" == "" ]; then			
-			sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print $2}' | sed '1!G;h;$!d' > quantities
-		else
-			#we assuming that abundance is by paired end reads
-			sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print ($2*(abu*2))/100}' | sed '1!G;h;$!d' > quantities
-		fi
-
-		sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $3, $6, $9, $12, $15, $18, $22}' > sname
-		#sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $22}' > sname
-		paste -d '_' sname quantities > metaphlanid.dat
-		rm sname quantities
-		
-		########################################
-		datfile=`echo "$datfile" |sed "s/,/./g"`
-		mv metaphlanid.dat parsed_$datfile.dat
-		echo "$datfile file formated"
-done
-
-total=`ls -1 *.dat.dat |wc -l`
-if [ $((total)) -le 1 ]; then
-	echo "need at least 2 files to make a table"
-else
-	#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
-	#parameters: work_directory pattern_file name_out_table
-	makeCSV > makeCSV.R
-	Rscript makeCSV.R . .dat.dat metaphlan_table.csv
-	rm makeCSV.R parsed*
-	sed -i '' "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species/g" metaphlan_table.csv
-	sed -i '' "s/\"//g" metaphlan_table.csv
-	awk 'BEGIN{FS=","}{gsub(/\./,",",$1);gsub(" ",",",$0);print $0}' metaphlan_table.csv > tmpcsv
-	rm metaphlan_table.csv
-	mv tmpcsv metaphlan_table.csv
-fi
-}
 
 function constrainsFunction {
-	echo "Constrains not yet :D"
+	
+	for profile in `ls -1 *.profiles`
+	do
+		awk '{if(NR>1){print $1, $4}}' $profile > parsed_$profile
+
+
+		##########PERDONAZO METHOD##############
+
+		if [ "$ABSENT" == "yes" ]; then
+			gimayor=`awk 'BEGIN{mayor=-1;gi=1}{if($2>mayor){gi=$1;mayor=$2}}END{print gi}' sigmaids.dat` #sigma col 1 have gi 
+			timayor=`grep -w "$gimayor" ${RUTAINICIAL}/$TITOGIFILE | awk '{print $1}'`
+			family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
+		
+			if [ "$family" == "$FAMILYPERMANENT" ]; then
+				sed -i "s/[[:<:]]$gimayor[[:>:]]/$gipermament/g" sigmaids.dat
+				echo "--------------------perdonazo in $gvector: yes"
+			else
+				echo "--------------------perdonazo in $gvector: no"
+			fi
+		fi
+		########################################
+									
+		#####trade gi x ti#########
+		cp sigmaids.dat tmp.dat
+		
+		for gi in `awk '{print $1}' tmp.dat`	
+		do
+			ti=""
+			while [ "$ti" == "" ]
+			do
+				ti=`curl -s "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=nuccore&db=taxonomy&id=$gi" |grep "<Id>"|tail -n1 |awk '{print $1}' |cut -d '>' -f 2 |cut -d '<' -f 1`
+				#echo "ti: $ti"
+			done
+			
+			sed -i '' "s/[[:<:]]$gi[[:>:]]/$ti/g" sigmaids.dat
+
+		done
+					
+		echo "$gvector file formated"
+		rm tmp.dat
+		mv sigmaids.dat parsed_$gvector.dat
+
+	done
+	###########################################################
+	##############FETCHING TI BY GI############################
+	total=`ls -1 *.gvector.txt.dat |wc -l`
+	if [ $((total)) -le 1 ]; then
+		echo "need at least 2 files to make a table"
+	else
+		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
+		#parameters: work_directory pattern_file name_out_table
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . gvector.txt.dat sigma_table.csv
+		rm parsed* makeCSV.R
+		sed -i '' "s/ti.//g" sigma_table.csv
+		sed -i '' "s/\"\"/\"ti\"/g" sigma_table.csv
+		sed -i '' "s/\"//g" sigma_table.csv
+		TakeLineageFunction sigma_table.csv
+	fi
 
 }
 
+function krakenFunction {
+	echo "Kraken not yet :D"
+
+}
 function makeCSV {
 echo 'library(xlsx)
 library(gtools)
