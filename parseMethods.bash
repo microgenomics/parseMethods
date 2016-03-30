@@ -15,7 +15,6 @@ fi
 #sigma: we assume when you worked with sigma, the names of the each fasta folder were the same that fasta gi (consult the script prepare sigmaDB if you don't have this format).
 #metaphlan: the results must have .dat exetension, you can change the actual extension for .dat and the script works anyway
 #metamix: pathoscope and metamix use the tsv extension, so, it will be recognize in form metamix<some name>.tsv
-#PERDONAZO METHOD: this method consist in change the mayor reads assigned in specific tax id to a defined permament tax id (while they belong the same family), getting by consequence the correct analysis when its compare in real data. This is triggered with ABSENT=YES in config file
 
 #####################################################################################################################
 #####################					PARSE PARAMETERS SECTION			#########################################
@@ -188,20 +187,20 @@ function pathoscopeFunction {
 		awk 'BEGIN{FS="|"}{print $2}' $tsvfile |awk '{if(NR>2)print $1, $4}' > pathoids.dat
 				
 		##########PERDONAZO METHOD FOR ABSENTS##############
-		if [ "$ABSENT" == "YES" ]; then
-			timayor=`awk 'BEGIN{mayor=-1;ti=1}{if($2>mayor){ti=$1;mayor=$2}}END{print ti}' pathoids.dat`
-			#make sure you have tifamily.dat
-			family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
-								
-			if [ "$family" == "$FAMILYPERMANENT" ]; then
-				sed "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" pathoids.dat > tmp
-				rm pathoids.dat
-				mv tmp pathoids.dat
-				echo "--------------------perdonazo in $tsvfile: YES"
-			else
-				echo "--------------------perdonazo in $tsvfile: no"
-			fi
-		fi
+		#if [ "$ABSENT" == "YES" ]; then
+		#	timayor=`awk 'BEGIN{mayor=-1;ti=1}{if($2>mayor){ti=$1;mayor=$2}}END{print ti}' pathoids.dat`
+		#	#make sure you have tifamily.dat
+		#	family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
+		#						
+		#	if [ "$family" == "$FAMILYPERMANENT" ]; then
+		#		sed "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" pathoids.dat > tmp
+		#		rm pathoids.dat
+		#		mv tmp pathoids.dat
+		#		echo "--------------------perdonazo in $tsvfile: YES"
+		#	else
+		#		echo "--------------------perdonazo in $tsvfile: no"
+		#	fi
+		#fi
 		########################################
 		tsvfile=`echo "$tsvfile" |sed "s/,/./g"`
 		mv pathoids.dat parsed_$tsvfile.dat
@@ -248,18 +247,18 @@ do
 		echo "$datfile file formated"
 
 
-		if [ "$ABSENT" == "YES" ]; then			
-			family=`awk 'BEGIN{mayor=-1;fam=""}{gsub("_"," ");if($8>mayor){fam=$5;mayor=$8}}END{print fam}' parsed_$datfile.dat`
-									
-			if [ "$family" == "$FAMILYPERMANENT" ]; then
-				sed "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" parsed_$datfile.dat > tmp
-				rm parsed_$datfile.dat
-				mv tmp parsed_$datfile.dat
-				echo "--------------------perdonazo in parsed_$datfile.dat: YES"
-			else
-				echo "--------------------perdonazo in $parsed_$datfile.dat: no"
-			fi
-		fi
+		#if [ "$ABSENT" == "YES" ]; then			
+		#	family=`awk 'BEGIN{mayor=-1;fam=""}{gsub("_"," ");if($8>mayor){fam=$5;mayor=$8}}END{print fam}' parsed_$datfile.dat`
+		#							
+		#	if [ "$family" == "$FAMILYPERMANENT" ]; then
+		#		sed "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" parsed_$datfile.dat > tmp
+		#		rm parsed_$datfile.dat
+		#		mv tmp parsed_$datfile.dat
+		#		echo "--------------------perdonazo in parsed_$datfile.dat: YES"
+		#	else
+		#		echo "--------------------perdonazo in $parsed_$datfile.dat: no"
+		#	fi
+		#fi
 done
 
 total=`ls -1 *.dat.dat |wc -l`
@@ -294,20 +293,20 @@ function metamixFunction {
 		rm taxidasigned readsasigned
 
 		##########PERDONAZO METHOD FOR ABSENTS##############
-		if [ "$ABSENT" == "YES" ]; then			
-			timayor=`awk 'BEGIN{mayor=-1;ti=1}{if($2>mayor){ti=$1;mayor=$2}}END{print ti}' metamixids.dat`
-			#make sure you have tifamily.dat
-			family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
-									
-			if [ "$family" == "$FAMILYPERMANENT" ]; then
-				sed "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" metamixids.dat > tmp
-				rm metamixids.dat
-				mv tmp metamixids.dat
-				echo "--------------------perdonazo in $tsvfile: YES"
-			else
-				echo "--------------------perdonazo in $tsvfile: no"
-			fi
-		fi
+		#if [ "$ABSENT" == "YES" ]; then			
+		#	timayor=`awk 'BEGIN{mayor=-1;ti=1}{if($2>mayor){ti=$1;mayor=$2}}END{print ti}' metamixids.dat`
+		#	#make sure you have tifamily.dat
+		#	family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
+		#							
+		#	if [ "$family" == "$FAMILYPERMANENT" ]; then
+		#		sed "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" metamixids.dat > tmp
+		#		rm metamixids.dat
+		#		mv tmp metamixids.dat
+		#		echo "--------------------perdonazo in $tsvfile: YES"
+		#	else
+		#		echo "--------------------perdonazo in $tsvfile: no"
+		#	fi
+		#fi
 		########################################
 		tsvfile=`echo "$tsvfile" |sed "s/,/./g"`
 		mv metamixids.dat parsed_$tsvfile.dat
@@ -342,20 +341,20 @@ function sigmaFunction {
 
 		##########PERDONAZO METHOD##############
 
-		if [ "$ABSENT" == "YES" ]; then
-			gimayor=`awk 'BEGIN{mayor=-1;gi=1}{if($2>mayor){gi=$1;mayor=$2}}END{print gi}' sigmaids.dat` #sigma col 1 have gi 
-			timayor=`grep -w "$gimayor" ${RUTAINICIAL}/$TITOGIFILE | awk '{print $1}'`
-			family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
-		
-			if [ "$family" == "$FAMILYPERMANENT" ]; then
-				sed "s/[[:<:]]$gimayor[[:>:]]/$gipermament/g" sigmaids.dat > tmp
-				rm sigmaids.dat
-				mv tmp sigmaids.dat
-				echo "--------------------perdonazo in $gvector: YES"
-			else
-				echo "--------------------perdonazo in $gvector: no"
-			fi
-		fi
+		#if [ "$ABSENT" == "YES" ]; then
+		#	gimayor=`awk 'BEGIN{mayor=-1;gi=1}{if($2>mayor){gi=$1;mayor=$2}}END{print gi}' sigmaids.dat` #sigma col 1 have gi 
+		#	timayor=`grep -w "$gimayor" ${RUTAINICIAL}/$TITOGIFILE | awk '{print $1}'`
+		#	family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
+		#
+		#	if [ "$family" == "$FAMILYPERMANENT" ]; then
+		#		sed "s/[[:<:]]$gimayor[[:>:]]/$gipermament/g" sigmaids.dat > tmp
+		#		rm sigmaids.dat
+		#		mv tmp sigmaids.dat
+		#		echo "--------------------perdonazo in $gvector: YES"
+		#	else
+		#		echo "--------------------perdonazo in $gvector: no"
+		#	fi
+		#fi
 		########################################
 									
 		#####trade gi x ti#########
@@ -407,31 +406,36 @@ function constrainsFunction {
 	for profile in `ls -1 *.profiles`
 	do
 		awk '{if(NR>1){print $1, $4}}' $profile > parsed_$profile.dat
-
-		##GETTING LINEAGE
-		
-		
+		while read line
+		do
+			genus=`echo "$line" |awk 'BEGIN{FS="_"}{print $1}'`
+			species=`echo "$line" |awk 'BEGIN{FS="_| "}{print $2}'`
+			reads=`echo "$line" |awk '{print $2}'`
+			lineage=""
+			echo "fetching $genus $species lineage"
+			while [ "$lineage" == "" ]
+			do
+				lineage=`curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}'`
+			done
+			echo "$lineage $species $genus...$species""_$reads" >> tmp
+		done < <(grep "" parsed_$profile.dat)
+		rm parsed_$profile.dat
+		mv tmp parsed_$profile.dat
 		##########PERDONAZO METHOD##############
-		#ARREGLAAAAAAAAAAAAaaaaaaR
-		if [ "$ABSENT" == "YES" ]; then
-			gimayor=`awk 'BEGIN{mayor=-1;gi=1}{if($2>mayor){gi=$1;mayor=$2}}END{print gi}' sigmaids.dat` #sigma col 1 have gi 
-			timayor=`grep -w "$gimayor" ${RUTAINICIAL}/$TITOGIFILE | awk '{print $1}'`
-			family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
-		
-			if [ "$family" == "$FAMILYPERMANENT" ]; then
-				sed "s/[[:<:]]$gimayor[[:>:]]/$gipermament/g" sigmaids.dat
-				echo "--------------------perdonazo in $gvector: YES"
-			else
-				echo "--------------------perdonazo in $gvector: no"
-			fi
-		fi
+		#if [ "$ABSENT" == "YES" ]; then
+		#	family=`awk 'BEGIN{mayor=-1;gi="nonfamily";FS="_| "}{if($9>mayor){gi=$5;mayor=$9}}END{print gi}' parsed_$profile.dat` #sigma col 1 have gi 
+		#	if [ "$family" == "$FAMILYPERMANENT" ]; then
+		#		sed "s/[[:<:]]$gimayor[[:>:]]/$gipermament/g" parsed_$profile.dat
+		#		echo "--------------------perdonazo in $gvector: YES"
+		#	else
+		#		echo "--------------------perdonazo in $gvector: no"
+		#	fi
+		#fi
 		########################################
-
-					
 		echo "$profile file formated"
 
 	done
-	exit
+
 	###########################################################
 	##############FETCHING TI BY GI############################
 	total=`ls -1 parsed_*.profiles.dat|wc -l`
@@ -442,12 +446,12 @@ function constrainsFunction {
 		#parameters: work_directory pattern_file name_out_table
 		makeCSV > makeCSV.R
 		Rscript makeCSV.R . .profiles.dat constrains_table.csv
-		exit
-		rm parsed* makeCSV.R
-		echo 'Kingdom,Phylum,Class,Order,Family,Genus,Species,Name,' > constrains_table.csv
-		#sed -i '' "s/ti.//g" sigma_table.csv
-		#sed -i '' "s/\"\"/\"ti\"/g" sigma_table.csv
-		#sed -i '' "s/\"//g" sigma_table.csv
+		rm makeCSV.R parsed*
+		sed "s/\.\.\./ /g" constrains_table.csv > tmp
+		sed "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name/g" tmp > tmp2
+		sed "s/\"//g" tmp2 > tmp3
+		awk 'BEGIN{FS=","}{gsub("\\.",",",$1);FS=" ";print $0}' tmp3 > constrains_table.csv
+		rm tmp*
 	fi
 
 }
@@ -496,7 +500,7 @@ if(pattr == ".dat.dat" || pattr == ".profiles.dat"){
 
 # for each table make the first col name OTU and the second the patient name
 
-if(pattr == ".dat.dat"){
+if(pattr == ".dat.dat" || pattr == ".profiles.dat"){
 	for( i in 1:length(list_of_files)){
   		colnames(read_counts[[i]])<- c(patient_names[i])
   		#print(read_counts[i])
@@ -510,7 +514,7 @@ if(pattr == ".dat.dat"){
 # list of lists called otu which stores the first column otu names for each dataframe
 otu<-NULL
 
-if (pattr == ".dat.dat"){
+if(pattr == ".dat.dat" || pattr == ".profiles.dat"){
 	for( i in 1:length(list_of_files)){
 	name<-paste(as.character(read_counts[[i]][,1]))
   	otu[i]<- list(name)
