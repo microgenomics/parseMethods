@@ -15,7 +15,7 @@ fi
 #sigma: we assume when you worked with sigma, the names of the each fasta folder were the same that fasta gi (consult the script prepare sigmaDB if you don't have this format).
 #metaphlan: the results must have .dat exetension, you can change the actual extension for .dat and the script works anyway
 #metamix: pathoscope and metamix use the tsv extension, so, it will be recognize in form metamix<some name>.tsv
-#PERDONAZO METHOD: this method consist in change the mayor reads assigned in specific tax id to a defined permament tax id (while they belong the same family), getting by consequence the correct analysis when its compare in real data.
+#PERDONAZO METHOD: this method consist in change the mayor reads assigned in specific tax id to a defined permament tax id (while they belong the same family), getting by consequence the correct analysis when its compare in real data. This is triggered with ABSENT=YES in config file
 
 #####################################################################################################################
 #####################					PARSE PARAMETERS SECTION			#########################################
@@ -43,7 +43,7 @@ do
 		echo "--workpath path where your files are"
 		echo "--cfile configuration file"
 		echo "make sure you have R (with gtools and xlsx)"
-		echo -e "\n to apply Perdonazo method, you must especify in the config file the parameter ABSENT=yes, the script automatically calculate corresponding data"
+		echo -e "\n to apply Perdonazo method, you must especify in the config file the parameter ABSENT=YES, the script automatically calculate corresponding data"
 		echo "if ABUNDANCE is missing in the configuration file, metaphlan results will write in percent (default)"
 		exit
 	;;
@@ -125,9 +125,9 @@ do
 	esac
 done
 
-if [[ "$ABSENT" =~ "yes" ]] ; then
+if [[ "$ABSENT" =~ "YES" ]] ; then
 	if [ "$tipermanent" == ""  ]; then
-		echo "ABSENT=yes, but you don't especify the tax id of your permament genome, it's a requisite to apply perdonazo method"
+		echo "ABSENT=YES, but you don't especify the tax id of your permament genome, it's a requisite to apply perdonazo method"
 		exit
 	else
 		curl -s "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id=$tipermanent" > tmp.xml
@@ -160,8 +160,8 @@ function TakeLineageFunction {
 			done
 			name=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml` #be careful with \n
 			lineage=`awk 'BEGIN{FS="[<|>]";prev=""}{if($2=="ScientificName"){prev=$3}if($3=="superkingdom"){printf "%s,",prev}if($3=="phylum"){printf "%s,",prev}if($3=="class"){printf "%s,",prev}if($3=="order"){printf "%s,", prev}if($3=="family"){printf "%s,",prev}if($3=="genus"){printf "%s,",prev}if($3=="species"){printf "%s,",prev}}' tmp.xml`
-			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "yes"}else{print "no"}}'`
-			if [ "$cand" == "yes" ]; then
+			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "no"}}'`
+			if [ "$cand" == "YES" ]; then
 				echo "unknow,unknow,unknow,unknow,unknow,unknow,unknow,$name," >> TaxonomyPredictionMatrix.csv
 			else
 				echo "$lineage$name," >> TaxonomyPredictionMatrix.csv
@@ -188,14 +188,16 @@ function pathoscopeFunction {
 		awk 'BEGIN{FS="|"}{print $2}' $tsvfile |awk '{if(NR>2)print $1, $4}' > pathoids.dat
 				
 		##########PERDONAZO METHOD FOR ABSENTS##############
-		if [ "$ABSENT" == "yes" ]; then
+		if [ "$ABSENT" == "YES" ]; then
 			timayor=`awk 'BEGIN{mayor=-1;ti=1}{if($2>mayor){ti=$1;mayor=$2}}END{print ti}' pathoids.dat`
 			#make sure you have tifamily.dat
 			family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
 								
 			if [ "$family" == "$FAMILYPERMANENT" ]; then
-				sed -i '' "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" pathoids.dat
-				echo "--------------------perdonazo in $tsvfile: yes"
+				sed "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" pathoids.dat > tmp
+				rm pathoids.dat
+				mv tmp pathoids.dat
+				echo "--------------------perdonazo in $tsvfile: YES"
 			else
 				echo "--------------------perdonazo in $tsvfile: no"
 			fi
@@ -214,9 +216,12 @@ function pathoscopeFunction {
 		makeCSV > makeCSV.R
 		Rscript makeCSV.R . tsv.dat pathoscope_table.csv
 		rm parsed* makeCSV.R
-		sed -i '' "s/ti.//g" pathoscope_table.csv
-		sed -i '' "s/\"\"/\"ti\"/g" pathoscope_table.csv
-		sed -i '' "s/\"//g" pathoscope_table.csv
+		sed "s/ti.//g" pathoscope_table.csv > tmp
+		sed "s/\"\"/\"ti\"/g" tmp > tmp2
+		sed "s/\"//g" tmp2 > tmp3
+		rm pathoscope_table.csv tmp tmp2
+		mv tmp3 pathoscope_table.csv
+
 		TakeLineageFunction pathoscope_table.csv
 
 	fi
@@ -233,7 +238,7 @@ do
 			sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print ($2*(abu*2))/100}' | sed '1!G;h;$!d' > quantities
 		fi
 
-		sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $3, $6, $9, $12, $15, $18, $22}' > sname
+		sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $3, $6, $9, $12, $15, $18, $22, $18"_"$22}' > sname
 		#sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $22}' > sname
 		paste -d '_' sname quantities > metaphlanid.dat
 		rm sname quantities
@@ -242,17 +247,18 @@ do
 		datfile=`echo "$datfile" |sed "s/,/./g"`
 		mv metaphlanid.dat parsed_$datfile.dat
 		echo "$datfile file formated"
-		
-		if [ "$ABSENT" == "yes" ]; then			
-			timayor=`awk 'BEGIN{mayor=-1;ti=1}{if($2>mayor){ti=$1;mayor=$2}}END{print ti}' parsed_$datfile.dat`
-			#make sure you have tifamily.dat
-			family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
+
+
+		if [ "$ABSENT" == "YES" ]; then			
+			family=`awk 'BEGIN{mayor=-1;fam=""}{gsub("_"," ");if($8>mayor){fam=$5;mayor=$8}}END{print fam}' parsed_$datfile.dat`
 									
 			if [ "$family" == "$FAMILYPERMANENT" ]; then
-				sed -i "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" metamixids.dat
-				echo "--------------------perdonazo in $tsvfile: yes"
+				sed "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" parsed_$datfile.dat > tmp
+				rm parsed_$datfile.dat
+				mv tmp parsed_$datfile.dat
+				echo "--------------------perdonazo in parsed_$datfile.dat: YES"
 			else
-				echo "--------------------perdonazo in $tsvfile: no"
+				echo "--------------------perdonazo in $parsed_$datfile.dat: no"
 			fi
 		fi
 done
@@ -266,8 +272,9 @@ else
 	makeCSV > makeCSV.R
 	Rscript makeCSV.R . .dat.dat metaphlan_table.csv
 	rm makeCSV.R parsed*
-	sed -i '' "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species/g" metaphlan_table.csv
-	sed -i '' "s/\"//g" metaphlan_table.csv
+	sed "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name/g" metaphlan_table.csv > tmp
+	sed "s/\"//g" tmp > metaphlan_table.csv
+	rm tmp
 	awk 'BEGIN{FS=","}{gsub(/\./,",",$1);gsub(" ",",",$0);print $0}' metaphlan_table.csv > tmpcsv
 	rm metaphlan_table.csv
 	mv tmpcsv metaphlan_table.csv
@@ -289,14 +296,16 @@ function metamixFunction {
 		rm taxidasigned readsasigned
 
 		##########PERDONAZO METHOD FOR ABSENTS##############
-		if [ "$ABSENT" == "yes" ]; then			
+		if [ "$ABSENT" == "YES" ]; then			
 			timayor=`awk 'BEGIN{mayor=-1;ti=1}{if($2>mayor){ti=$1;mayor=$2}}END{print ti}' metamixids.dat`
 			#make sure you have tifamily.dat
 			family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
 									
 			if [ "$family" == "$FAMILYPERMANENT" ]; then
-				sed -i "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" metamixids.dat
-				echo "--------------------perdonazo in $tsvfile: yes"
+				sed "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" metamixids.dat > tmp
+				rm metamixids.dat
+				mv tmp metamixids.dat
+				echo "--------------------perdonazo in $tsvfile: YES"
 			else
 				echo "--------------------perdonazo in $tsvfile: no"
 			fi
@@ -314,9 +323,10 @@ function metamixFunction {
 		makeCSV > makeCSV.R
 		Rscript makeCSV.R . tsv.dat metamix_table.csv
 		rm parsed* makeCSV.R
-		sed -i '' "s/ti.//g" metamix_table.csv
-		sed -i '' "s/\"\"/\"ti\"/g" metamix_table.csv
-		sed -i '' "s/\"//g" metamix_table.csv
+		sed "s/ti.//g" metamix_table.csv > tmp
+		sed "s/\"\"/\"ti\"/g" tmp > tmp2
+		sed "s/\"//g" tmp2 > metamix_table.csv
+		rm tmp tmp2
 		TakeLineageFunction metamix_table.csv
 	fi
 }
@@ -334,14 +344,16 @@ function sigmaFunction {
 
 		##########PERDONAZO METHOD##############
 
-		if [ "$ABSENT" == "yes" ]; then
+		if [ "$ABSENT" == "YES" ]; then
 			gimayor=`awk 'BEGIN{mayor=-1;gi=1}{if($2>mayor){gi=$1;mayor=$2}}END{print gi}' sigmaids.dat` #sigma col 1 have gi 
 			timayor=`grep -w "$gimayor" ${RUTAINICIAL}/$TITOGIFILE | awk '{print $1}'`
 			family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
 		
 			if [ "$family" == "$FAMILYPERMANENT" ]; then
-				sed -i "s/[[:<:]]$gimayor[[:>:]]/$gipermament/g" sigmaids.dat
-				echo "--------------------perdonazo in $gvector: yes"
+				sed "s/[[:<:]]$gimayor[[:>:]]/$gipermament/g" sigmaids.dat > tmp
+				rm sigmaids.dat
+				mv tmp sigmaids.dat
+				echo "--------------------perdonazo in $gvector: YES"
 			else
 				echo "--------------------perdonazo in $gvector: no"
 			fi
@@ -360,7 +372,9 @@ function sigmaFunction {
 				#echo "ti: $ti"
 			done
 			
-			sed -i '' "s/[[:<:]]$gi[[:>:]]/$ti/g" sigmaids.dat
+			sed "s/[[:<:]]$gi[[:>:]]/$ti/g" sigmaids.dat > tmp
+			rm sigmaids.dat
+			mv tmp sigmaids.dat
 
 		done
 					
@@ -380,9 +394,10 @@ function sigmaFunction {
 		makeCSV > makeCSV.R
 		Rscript makeCSV.R . gvector.txt.dat sigma_table.csv
 		rm parsed* makeCSV.R
-		sed -i '' "s/ti.//g" sigma_table.csv
-		sed -i '' "s/\"\"/\"ti\"/g" sigma_table.csv
-		sed -i '' "s/\"//g" sigma_table.csv
+		sed "s/ti.//g" sigma_table.csv > tmp
+		sed "s/\"\"/\"ti\"/g" tmp > tmp2
+		sed "s/\"//g" tmp2 > sigma_table.csv
+		rm tmp tmp2
 		TakeLineageFunction sigma_table.csv
 	fi
 	
@@ -394,39 +409,33 @@ function constrainsFunction {
 	for profile in `ls -1 *.profiles`
 	do
 		awk '{if(NR>1){print $1, $4}}' $profile > parsed_$profile
+		echo 'Kingdom,Phylum,Class,Order,Family,Genus,Species,Name,' > constrains_table.csv
+		while read line
+		do
+			tosearch=`echo $line |awk '{gsub("_"," ");print $1"%20"$2}'`
+			percentreads=`echo $line |awk '{print $2}'`
+			lineage=`curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$tosearch&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next};if($0~"</lineage>"){band=0};if(band==1){gsub("\"","");gsub("="," ");print $7, $3}}' |tail -r|awk '{if(NR<=2){next};lineage=lineage$2" "}END{print lineage}'`							
 
-
+		done < <(grep "" parsed_$profile)
+		##GETTING LINEAGE
+		
+		
 		##########PERDONAZO METHOD##############
 
-		if [ "$ABSENT" == "yes" ]; then
+		if [ "$ABSENT" == "YES" ]; then
 			gimayor=`awk 'BEGIN{mayor=-1;gi=1}{if($2>mayor){gi=$1;mayor=$2}}END{print gi}' sigmaids.dat` #sigma col 1 have gi 
 			timayor=`grep -w "$gimayor" ${RUTAINICIAL}/$TITOGIFILE | awk '{print $1}'`
 			family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
 		
 			if [ "$family" == "$FAMILYPERMANENT" ]; then
-				sed -i "s/[[:<:]]$gimayor[[:>:]]/$gipermament/g" sigmaids.dat
-				echo "--------------------perdonazo in $gvector: yes"
+				sed "s/[[:<:]]$gimayor[[:>:]]/$gipermament/g" sigmaids.dat
+				echo "--------------------perdonazo in $gvector: YES"
 			else
 				echo "--------------------perdonazo in $gvector: no"
 			fi
 		fi
 		########################################
-									
-		#####trade gi x ti#########
-		cp sigmaids.dat tmp.dat
-		
-		for gi in `awk '{print $1}' tmp.dat`	
-		do
-			ti=""
-			while [ "$ti" == "" ]
-			do
-				ti=`curl -s "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=nuccore&db=taxonomy&id=$gi" |grep "<Id>"|tail -n1 |awk '{print $1}' |cut -d '>' -f 2 |cut -d '<' -f 1`
-				#echo "ti: $ti"
-			done
-			
-			sed -i '' "s/[[:<:]]$gi[[:>:]]/$ti/g" sigmaids.dat
 
-		done
 					
 		echo "$gvector file formated"
 		rm tmp.dat
