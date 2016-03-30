@@ -218,9 +218,8 @@ function pathoscopeFunction {
 		rm parsed* makeCSV.R
 		sed "s/ti.//g" pathoscope_table.csv > tmp
 		sed "s/\"\"/\"ti\"/g" tmp > tmp2
-		sed "s/\"//g" tmp2 > tmp3
-		rm pathoscope_table.csv tmp tmp2
-		mv tmp3 pathoscope_table.csv
+		sed "s/\"//g" tmp2 > pathoscope_table.csv
+		rm  tmp tmp2
 
 		TakeLineageFunction pathoscope_table.csv
 
@@ -238,7 +237,7 @@ do
 			sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print ($2*(abu*2))/100}' | sed '1!G;h;$!d' > quantities
 		fi
 
-		sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $3, $6, $9, $12, $15, $18, $22, $18"_"$22}' > sname
+		sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $3, $6, $9, $12, $15, $18, $22, $18"..."$22}' > sname
 		#sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $22}' > sname
 		paste -d '_' sname quantities > metaphlanid.dat
 		rm sname quantities
@@ -272,12 +271,11 @@ else
 	makeCSV > makeCSV.R
 	Rscript makeCSV.R . .dat.dat metaphlan_table.csv
 	rm makeCSV.R parsed*
-	sed "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name/g" metaphlan_table.csv > tmp
-	sed "s/\"//g" tmp > metaphlan_table.csv
-	rm tmp
-	awk 'BEGIN{FS=","}{gsub(/\./,",",$1);gsub(" ",",",$0);print $0}' metaphlan_table.csv > tmpcsv
-	rm metaphlan_table.csv
-	mv tmpcsv metaphlan_table.csv
+	sed "s/\.\.\./ /g" metaphlan_table.csv > tmp
+	sed "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name/g" tmp > tmp2
+	sed "s/\"//g" tmp2 > tmp3
+	awk 'BEGIN{FS=","}{gsub("\\.",",",$1);FS=" ";print $0}' tmp3 > metaphlan_table.csv
+	rm tmp*
 fi
 }
 function metamixFunction {
@@ -408,20 +406,13 @@ function constrainsFunction {
 	
 	for profile in `ls -1 *.profiles`
 	do
-		awk '{if(NR>1){print $1, $4}}' $profile > parsed_$profile
-		echo 'Kingdom,Phylum,Class,Order,Family,Genus,Species,Name,' > constrains_table.csv
-		while read line
-		do
-			tosearch=`echo $line |awk '{gsub("_"," ");print $1"%20"$2}'`
-			percentreads=`echo $line |awk '{print $2}'`
-			lineage=`curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$tosearch&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next};if($0~"</lineage>"){band=0};if(band==1){gsub("\"","");gsub("="," ");print $7, $3}}' |tail -r|awk '{if(NR<=2){next};lineage=lineage$2" "}END{print lineage}'`							
+		awk '{if(NR>1){print $1, $4}}' $profile > parsed_$profile.dat
 
-		done < <(grep "" parsed_$profile)
 		##GETTING LINEAGE
 		
 		
 		##########PERDONAZO METHOD##############
-
+		#ARREGLAAAAAAAAAAAAaaaaaaR
 		if [ "$ABSENT" == "YES" ]; then
 			gimayor=`awk 'BEGIN{mayor=-1;gi=1}{if($2>mayor){gi=$1;mayor=$2}}END{print gi}' sigmaids.dat` #sigma col 1 have gi 
 			timayor=`grep -w "$gimayor" ${RUTAINICIAL}/$TITOGIFILE | awk '{print $1}'`
@@ -437,26 +428,26 @@ function constrainsFunction {
 		########################################
 
 					
-		echo "$gvector file formated"
-		rm tmp.dat
-		mv sigmaids.dat parsed_$gvector.dat
+		echo "$profile file formated"
 
 	done
+	exit
 	###########################################################
 	##############FETCHING TI BY GI############################
-	total=`ls -1 *.gvector.txt.dat |wc -l`
+	total=`ls -1 parsed_*.profiles.dat|wc -l`
 	if [ $((total)) -le 1 ]; then
 		echo "need at least 2 files to make a table"
 	else
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
 		makeCSV > makeCSV.R
-		Rscript makeCSV.R . gvector.txt.dat sigma_table.csv
+		Rscript makeCSV.R . .profiles.dat constrains_table.csv
+		exit
 		rm parsed* makeCSV.R
-		sed -i '' "s/ti.//g" sigma_table.csv
-		sed -i '' "s/\"\"/\"ti\"/g" sigma_table.csv
-		sed -i '' "s/\"//g" sigma_table.csv
-		TakeLineageFunction sigma_table.csv
+		echo 'Kingdom,Phylum,Class,Order,Family,Genus,Species,Name,' > constrains_table.csv
+		#sed -i '' "s/ti.//g" sigma_table.csv
+		#sed -i '' "s/\"\"/\"ti\"/g" sigma_table.csv
+		#sed -i '' "s/\"//g" sigma_table.csv
 	fi
 
 }
@@ -494,7 +485,7 @@ for( i in 1:length(list_of_files)){
 # read in each table
 
 #read_counts <- lapply(list_of_files, read.table, sep="\t", header = FALSE, skip =2)
-if(pattr == ".dat.dat"){
+if(pattr == ".dat.dat" || pattr == ".profiles.dat"){
 	read_counts <- lapply(list_of_files, read.table, sep="_", header = FALSE)
 }else{
 	read_counts <- lapply(list_of_files, read.table, sep=" ", header = FALSE)
