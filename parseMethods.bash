@@ -185,23 +185,6 @@ function pathoscopeFunction {
 	do
 		#if to recognize if the files for post analysis are in reads number or percent (abundance required)
 		awk 'BEGIN{FS="|"}{print $2}' $tsvfile |awk '{if(NR>2)print $1, $4}' > pathoids.dat
-				
-		##########PERDONAZO METHOD FOR ABSENTS##############
-		#if [ "$ABSENT" == "YES" ]; then
-		#	timayor=`awk 'BEGIN{mayor=-1;ti=1}{if($2>mayor){ti=$1;mayor=$2}}END{print ti}' pathoids.dat`
-		#	#make sure you have tifamily.dat
-		#	family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
-		#						
-		#	if [ "$family" == "$FAMILYPERMANENT" ]; then
-		#		sed "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" pathoids.dat > tmp
-		#		rm pathoids.dat
-		#		mv tmp pathoids.dat
-		#		echo "--------------------perdonazo in $tsvfile: YES"
-		#	else
-		#		echo "--------------------perdonazo in $tsvfile: no"
-		#	fi
-		#fi
-		########################################
 		tsvfile=`echo "$tsvfile" |sed "s/,/./g"`
 		mv pathoids.dat parsed_$tsvfile.dat
 		echo "$tsvfile file formated"
@@ -245,20 +228,6 @@ do
 		datfile=`echo "$datfile" |sed "s/,/./g"`
 		mv metaphlanid.dat parsed_$datfile.dat
 		echo "$datfile file formated"
-
-
-		#if [ "$ABSENT" == "YES" ]; then			
-		#	family=`awk 'BEGIN{mayor=-1;fam=""}{gsub("_"," ");if($8>mayor){fam=$5;mayor=$8}}END{print fam}' parsed_$datfile.dat`
-		#							
-		#	if [ "$family" == "$FAMILYPERMANENT" ]; then
-		#		sed "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" parsed_$datfile.dat > tmp
-		#		rm parsed_$datfile.dat
-		#		mv tmp parsed_$datfile.dat
-		#		echo "--------------------perdonazo in parsed_$datfile.dat: YES"
-		#	else
-		#		echo "--------------------perdonazo in $parsed_$datfile.dat: no"
-		#	fi
-		#fi
 done
 
 total=`ls -1 *.dat.dat |wc -l`
@@ -292,22 +261,6 @@ function metamixFunction {
 		
 		rm taxidasigned readsasigned
 
-		##########PERDONAZO METHOD FOR ABSENTS##############
-		#if [ "$ABSENT" == "YES" ]; then			
-		#	timayor=`awk 'BEGIN{mayor=-1;ti=1}{if($2>mayor){ti=$1;mayor=$2}}END{print ti}' metamixids.dat`
-		#	#make sure you have tifamily.dat
-		#	family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
-		#							
-		#	if [ "$family" == "$FAMILYPERMANENT" ]; then
-		#		sed "s/[[:<:]]$timayor[[:>:]]/$tipermament/g" metamixids.dat > tmp
-		#		rm metamixids.dat
-		#		mv tmp metamixids.dat
-		#		echo "--------------------perdonazo in $tsvfile: YES"
-		#	else
-		#		echo "--------------------perdonazo in $tsvfile: no"
-		#	fi
-		#fi
-		########################################
 		tsvfile=`echo "$tsvfile" |sed "s/,/./g"`
 		mv metamixids.dat parsed_$tsvfile.dat
 	done		   			
@@ -338,24 +291,6 @@ function sigmaFunction {
 		#to recognize if the files for post analysis are in reads number or percent (abundance required)
 			mappedread=`awk '{if($1=="+"){print $4-2}}' $gvector`
 			awk -v map=$mappedread '{if($1=="*"){printf "%d %d\n",$2, ($3*map)/100}}' $gvector > tmp.dat
-
-		##########PERDONAZO METHOD##############
-
-		#if [ "$ABSENT" == "YES" ]; then
-		#	gimayor=`awk 'BEGIN{mayor=-1;gi=1}{if($2>mayor){gi=$1;mayor=$2}}END{print gi}' sigmaids.dat` #sigma col 1 have gi 
-		#	timayor=`grep -w "$gimayor" ${RUTAINICIAL}/$TITOGIFILE | awk '{print $1}'`
-		#	family=`grep "$timayor" ${RUTAINICIAL}/$TIFAMILYFILE | awk '{print $2}'`
-		#
-		#	if [ "$family" == "$FAMILYPERMANENT" ]; then
-		#		sed "s/[[:<:]]$gimayor[[:>:]]/$gipermament/g" sigmaids.dat > tmp
-		#		rm sigmaids.dat
-		#		mv tmp sigmaids.dat
-		#		echo "--------------------perdonazo in $gvector: YES"
-		#	else
-		#		echo "--------------------perdonazo in $gvector: no"
-		#	fi
-		#fi
-		########################################
 									
 		#####trade gi x ti#########
 		cp sigmaids.dat tmp.dat
@@ -421,17 +356,7 @@ function constrainsFunction {
 		done < <(grep "" parsed_$profile.dat)
 		rm parsed_$profile.dat
 		mv tmp parsed_$profile.dat
-		##########PERDONAZO METHOD##############
-		#if [ "$ABSENT" == "YES" ]; then
-		#	family=`awk 'BEGIN{mayor=-1;gi="nonfamily";FS="_| "}{if($9>mayor){gi=$5;mayor=$9}}END{print gi}' parsed_$profile.dat` #sigma col 1 have gi 
-		#	if [ "$family" == "$FAMILYPERMANENT" ]; then
-		#		sed "s/[[:<:]]$gimayor[[:>:]]/$gipermament/g" parsed_$profile.dat
-		#		echo "--------------------perdonazo in $gvector: YES"
-		#	else
-		#		echo "--------------------perdonazo in $gvector: no"
-		#	fi
-		#fi
-		########################################
+
 		echo "$profile file formated"
 
 	done
