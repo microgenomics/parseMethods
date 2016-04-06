@@ -34,16 +34,21 @@ do
 	"--cfile")
 		cfileband=1
 	;;
-	"--tifamily")
-		tifamilyband=1
+	"--dbKR")
+		dbkrband=1
+		invalidband=0
 	;;
 	"--help")
+		echo "Usage: bash parseMethods.bash --workpath . --cfile config"
 		echo "Options aviable:"
 		echo "--workpath path where your files are"
 		echo "--cfile configuration file"
-		echo "make sure you have R (with gtools and xlsx)"
-		echo -e "\n to apply Perdonazo method, you must especify in the config file the parameter ABSENT=YES, the script automatically calculate corresponding data"
-		echo "if ABUNDANCE is missing in the configuration file, metaphlan results will write in percent (default)"
+		echo -e "\n Notes:"
+		echo "a) If KRAKEN is in your METHODS, Use --dbKR to provide kraken database folder, this is to translate resuts into a tax id and then homologate outputs. "
+		echo "b) Make sure you have R (with gtools and xlsx)"
+		echo "c) To apply Perdonazo method, you must especify in the config file the parameter ABSENT=YES, the script automatically calculate corresponding data"
+		echo "d) If ABUNDANCE is missing in the configuration file, metaphlan and constrains results will write in percent and others in reads number (default), provide a ABUNDANCE will set all results in reads number. This value can be obtained from total lines of your reads files previously used"
+		echo "finally, don't use \",\" to name your files, this script will generate a csv, so don't put the character coma in names"
 		exit
 	;;
 	*)
@@ -116,25 +121,22 @@ do
 			cfileband=0
 		fi
 		
-		if [ $((tifamilyband)) -eq 1 ]; then
-			TIFAMILYFILE=$i
-			tifamilyband=0
+		if [ $((dbkrband)) -eq 1 ]; then
+			dbkrband=0
+			if [ -d $i ]; then
+				INITIALPATH=`pwd`
+				cd $i
+				DBKR=`pwd`
+				cd $INITIALPATH
+			else
+				echo "$i file no exist"
+				exit
+			fi
 		fi
 	;;
 	esac
 done
 
-if [[ "$ABSENT" =~ "YES" ]] ; then
-	if [ "$tipermanent" == ""  ]; then
-		echo "ABSENT=YES, but you don't especify the tax id of your permament genome, it's a requisite to apply perdonazo method"
-		exit
-	else
-		curl -s "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id=$tipermanent" > tmp.xml
-		FAMILYPERMANENT=`awk 'BEGIN{FS="[<|>]";prev=""}{if($2=="ScientificName"){prev=$3}if($3=="family"){printf "%s,",prev}}' tmp.xml` #family corresponding to fasta permament
-		rm tmp.xml
-	fi
-fi
-#####################################################################################################################
 
 ###############################					FUNCTION DECLARATION				#################################
 function TakeLineageFunction {
@@ -152,7 +154,7 @@ function TakeLineageFunction {
 			 #warning, no error tolerance (I never get the error for cover the case)
 			 #fetch the ti by ncbi api
 			nofetch=""
-			while [ "$nofetch" == "" ]
+			while [ "$nofetch" == "" ] || [[ "$nofetch" =~ "Connection refused" ]]
 			do
 				curl -s "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id=$ti" > tmp.xml
 				nofetch=`cat tmp.xml`
@@ -183,7 +185,6 @@ function pathoscopeFunction {
 
 	for tsvfile in `ls -1 pathoscope*.tsv`
 	do
-		#if to recognize if the files for post analysis are in reads number or percent (abundance required)
 		awk 'BEGIN{FS="|"}{print $2}' $tsvfile |awk '{if(NR>2)print $1, $4}' > pathoids.dat
 		tsvfile=`echo "$tsvfile" |sed "s/,/./g"`
 		mv pathoids.dat parsed_$tsvfile.dat
@@ -215,8 +216,7 @@ do
 		if [ "$ABUNDANCE" == "" ]; then			
 			sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print $2}' | sed '1!G;h;$!d' > quantities
 		else
-			#we assuming that abundance is by paired end reads
-			sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print ($2*(abu*2))/100}' | sed '1!G;h;$!d' > quantities
+			sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print ($2*abu)/100}' | sed '1!G;h;$!d' > quantities
 		fi
 
 		sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $3, $6, $9, $12, $15, $18, $22, $18"..."$22}' > sname
@@ -345,7 +345,13 @@ function constrainsFunction {
 		do
 			genus=`echo "$line" |awk 'BEGIN{FS="_"}{print $1}'`
 			species=`echo "$line" |awk 'BEGIN{FS="_| "}{print $2}'`
-			reads=`echo "$line" |awk '{print $2}'`
+		
+			if [ "$ABUNDANCE" == "" ]; then			
+				reads=`echo "$line" |awk '{print $2}'`
+			else
+				reads=`echo "$line" |awk -v abu=$ABUNDANCE '{print ($2*abu)/100}'`
+			fi
+		
 			lineage=""
 			echo "fetching $genus $species lineage"
 			while [ "$lineage" == "" ]
@@ -382,7 +388,45 @@ function constrainsFunction {
 }
 
 function krakenFunction {
-	echo "Kraken not yet :D"
+	if [ "$DBKR" == "" ];then
+		echo "you must provide the kraken database folder for convertion names to tax id"
+		exit
+	fi
+
+	for kraken in `ls -1 *.kraken`
+	do
+		#for % reads
+		#totalreads=`wc -l $kraken |awk '{print $1}'`
+		#awk -v $totalreads=$totalreads 'BEGIN{FS=";"}{if(NR==FNR && $2!=""){n[$2]+=1}}END{for(key in n){print key";"n[key]/totalreads}}' $kraken > parsed_$kraken
+		awk 'BEGIN{FS=";"}{if(NR==FNR && $2!=""){n[$2]+=1}}END{for(key in n){print key";"n[key]}}' $kraken > tmp
+		while read line
+		do
+			name=`echo $line |awk 'BEGIN{FS=";"}{print $1}'`
+			reads=`echo $line |awk 'BEGIN{FS=";"}{print $2}'`
+			ti=`grep "$name" ${DBKR}/taxonomy/names.dmp |awk '{print $1}'` #this line will get the tax id
+			echo "$ti $reads"
+		done < <(grep "" tmp) > parsed_$kraken.dat
+		rm tmp
+		echo "$kraken file formated"	
+	done
+
+	#####################################################
+	total=`ls -1 *.kraken.dat |wc -l`
+	if [ $((total)) -le 1 ]; then
+		echo "need at least 2 files to make a table"
+	else
+		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
+		#parameters: work_directory pattern_file name_out_table
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . .kraken.dat kraken_table.csv
+		rm parsed* makeCSV.R
+		sed "s/ti.//g" kraken_table.csv > tmp
+		sed "s/\"\"/ti/g" tmp > tmp2
+		sed "s/\"//g" tmp2 > kraken_table.csv
+		rm  tmp tmp2
+
+		TakeLineageFunction kraken_table.csv
+	fi
 
 }
 function makeCSV {
@@ -511,6 +555,9 @@ if [ $((statusband)) -ge 2 ]; then
 	   		"CONSTRAINS")
 	   			constrainsFunction
 	   		;;
+	   		"KRAKEN")
+				krakenFunction
+			;;
 	   		*)
 	   			echo "no method aviable for $METHOD"
 	   			exit

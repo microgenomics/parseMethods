@@ -2,7 +2,7 @@
 # add comments using the pound character
 # case sensitive (use uppercase)
 
-METHOD=PATHOSCOPE
+METHOD=KRAKEN
 MODULES=PARSE
 
 
