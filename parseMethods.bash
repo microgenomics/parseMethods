@@ -24,6 +24,8 @@ cfileband=0
 statusband=0
 titogiband=0
 tifamilyband=0
+abundanceband=0
+ABUNDANCE=""
 
 for i in "$@"
 do
@@ -34,9 +36,8 @@ do
 	"--cfile")
 		cfileband=1
 	;;
-	"--dbKR")
-		dbkrband=1
-		invalidband=0
+	"--abundance")
+		abundanceband=1		
 	;;
 	"--help")
 		echo "Usage: bash parseMethods.bash --workpath . --cfile config"
@@ -44,11 +45,11 @@ do
 		echo "--workpath path where your files are"
 		echo "--cfile configuration file"
 		echo -e "\n Notes:"
-		echo "a) If KRAKEN is in your METHODS, Use --dbKR to provide kraken database folder, this is to translate resuts into a tax id and then homologate outputs. "
-		echo "b) Make sure you have R (with gtools and xlsx)"
-		echo "c) To apply Perdonazo method, you must especify in the config file the parameter ABSENT=YES, the script automatically calculate corresponding data"
-		echo "d) If ABUNDANCE is missing in the configuration file, metaphlan and constrains results will write in percent and others in reads number (default), provide a ABUNDANCE will set all results in reads number. This value can be obtained from total lines of your reads files previously used"
-		echo "finally, don't use \",\" to name your files, this script will generate a csv, so don't put the character coma in names"
+		echo "a) Make sure you have R (with gtools and xlsx)"
+		echo "b) If ABUNDANCE is missing (--abundance), metaphlan, constrains and sigma results will write in percent and others in reads number (default), providing an ABUNDANCE will set all results in reads number. This value can be obtained from total lines of your reads files previously used"
+		echo "c) If ABUNDANCE is provided, you should also provide the READTYPE (PAIRED or SINGLE in the config file), this only multiply de abundance for 2 (if is paired) or not if is single"
+		echo "c) To apply Perdonazo method, you must especify in the config file the parameter ABSENT=YES, the script automatically calculate corresponding data"		
+		echo "finally, don't use \",\" to name your files, this script will generate a csv and may cause problems"
 		exit
 	;;
 	*)
@@ -64,72 +65,33 @@ do
 			do
 				Pname=`echo "$parameter" |awk 'BEGIN{FS="="}{print $1}'`		
 				case $Pname in
-					"GENOMESIZEBALANCE")
-						GENOMESIZEBALANCE=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`
-					;;
-					"COMMUNITYCOMPLEX")
-						COMMUNITYCOMPLEX=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
-					"SPECIES")
-						SPECIES=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
-					"ABUNDANCE")
-						ABUNDANCE=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
-					"DOMINANCE")
-					DOMINANCE=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
 					"READSIZE")
 						READSIZE=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
+					;;
+					"READTYPE")
+						READTYPE=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
 					;;
 					"METHOD")
 						METHOD=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
 					;;
-					"CORES")
-						CORES=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
-					"THREADS")
-						THREADS=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
-					"PATHOSCOPEHOME")
-						PATHOSCOPEHOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
-					"SIGMAHOME")
-						SIGMAHOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
-					"BLASTHOME")
-						BLASTHOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
-					"METAPHLAN2HOME")
-						METAPHLAN2HOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
-					"CONSTRAINSHOME")
-						CONSTRAINSHOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
-					;;
-					"SAMTOOLSHOME")
-						SAMTOOLSHOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`
-					;;
-					"BOWTIE2HOME")
-						BOWTIE2HOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`
-					;;
-					"KRAKENHOME")
-						KRAKENHOME=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`
-					;;					
+			
 				esac
 			done
 			statusband=$((statusband+1))
 			cfileband=0
 		fi
 		
-		if [ $((dbkrband)) -eq 1 ]; then
-			dbkrband=0
-			if [ -d $i ]; then
-				INITIALPATH=`pwd`
-				cd $i
-				DBKR=`pwd`
-				cd $INITIALPATH
+		if [ $((abundanceband)) -eq 1 ]; then
+			abundanceband=0
+			re='^[0-9]+$'
+			if ! [[ $i =~ $re ]] ; then
+			   echo "error: abundance is not a number" >&2; 
+			   exit
+			fi
+			if [ "$i" != "0" ]; then
+				ABUNDANCE=$i
 			else
-				echo "$i file no exist"
+				echo "$i is an invalid abundance"
 				exit
 			fi
 		fi
@@ -161,7 +123,7 @@ function TakeLineageFunction {
 			done
 			name=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml` #be careful with \n
 			lineage=`awk 'BEGIN{FS="[<|>]";prev=""}{if($2=="ScientificName"){prev=$3}if($3=="superkingdom"){printf "%s,",prev}if($3=="phylum"){printf "%s,",prev}if($3=="class"){printf "%s,",prev}if($3=="order"){printf "%s,", prev}if($3=="family"){printf "%s,",prev}if($3=="genus"){printf "%s,",prev}if($3=="species"){printf "%s,",prev}}' tmp.xml`
-			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "no"}}'`
+			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}'`
 			if [ "$cand" == "YES" ]; then
 				echo "unknow,unknow,unknow,unknow,unknow,unknow,unknow,$name," >> TaxonomyPredictionMatrix.csv
 			else
@@ -210,13 +172,17 @@ function pathoscopeFunction {
 }
 function metaphlanFunction {
 
-for datfile in `ls -1 *.dat`
+for datfile in `ls -1 metaphlan*.dat`
 do
 		#if to recognize if the files for post analysis are in reads number or percent (abundance required)
-		if [ "$ABUNDANCE" == "" ]; then			
+		if [ "$ABUNDANCE" == "" ]; then
 			sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print $2}' | sed '1!G;h;$!d' > quantities
 		else
-			sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print ($2*abu)/100}' | sed '1!G;h;$!d' > quantities
+			if [ "$READTYPE" == "PAIRED" ]; then
+				sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print (($2*abu)*2)/100}' | sed '1!G;h;$!d' > quantities
+			else
+				sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print ($2*abu)/100}' | sed '1!G;h;$!d' > quantities
+			fi
 		fi
 
 		sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $3, $6, $9, $12, $15, $18, $22, $18"..."$22}' > sname
@@ -230,21 +196,21 @@ do
 		echo "$datfile file formated"
 done
 
-total=`ls -1 *.dat.dat |wc -l`
-if [ $((total)) -le 1 ]; then
-	echo "need at least 2 files to make a table"
-else
-	#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
-	#parameters: work_directory pattern_file name_out_table
-	makeCSV > makeCSV.R
-	Rscript makeCSV.R . .dat.dat metaphlan_table.csv
-	rm makeCSV.R parsed*
-	sed "s/\.\.\./ /g" metaphlan_table.csv > tmp
-	sed "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name/g" tmp > tmp2
-	sed "s/\"//g" tmp2 > tmp3
-	awk 'BEGIN{FS=","}{gsub("\\.",",",$1);FS=" ";print $0}' tmp3 > metaphlan_table.csv
-	rm tmp*
-fi
+	total=`ls -1 *.dat.dat |wc -l`
+	if [ $((total)) -le 1 ]; then
+		echo "need at least 2 files to make a table"
+	else
+		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
+		#parameters: work_directory pattern_file name_out_table
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . .dat.dat metaphlan_table.csv
+		rm makeCSV.R parsed*
+		sed "s/\.\.\./ /g" metaphlan_table.csv > tmp
+		sed "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name/g" tmp > tmp2
+		sed "s/\"//g" tmp2 > tmp3
+		awk 'BEGIN{FS=","}{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > metaphlan_table.csv
+		rm tmp*
+	fi
 }
 function metamixFunction {
 	###################################################################################################################################################################################
@@ -255,16 +221,24 @@ function metamixFunction {
 	do
 		awk 'BEGIN{FS="\""}{if(NR>1)print $4}' $tsvfile > taxidasigned
 				
-			awk 'BEGIN{FS="\""}{if(NR>1)print $7}' $tsvfile |awk '{print $1}' > readsasigned
+		awk 'BEGIN{FS="\""}{if(NR>1)print $7}' $tsvfile |awk '{print $1}' > readsasigned
 
-		paste taxidasigned readsasigned > metamixids.dat
-		
+		paste -d " " taxidasigned readsasigned > metamixids.dat
+		delete=`grep "unknown" -n metamixids.dat |awk -F ":" '{print $1}'`
+
+		if [ "$delete" != "" ]; then
+			sed "${delete}d" metamixids.dat > tmp
+			rm metamixids.dat
+			mv tmp metamixids.dat
+		fi
+
 		rm taxidasigned readsasigned
 
 		tsvfile=`echo "$tsvfile" |sed "s/,/./g"`
 		mv metamixids.dat parsed_$tsvfile.dat
-	done		   			
-		total=`ls -1 *.tsv.dat |wc -l`
+	done		   
+
+	total=`ls -1 *.tsv.dat |wc -l`
 	if [ $((total)) -le 1 ]; then
 		echo "need at least 2 files to make a table"
 	else
@@ -289,12 +263,22 @@ function sigmaFunction {
 	for gvector in `ls -1 *gvector.txt`
 	do
 		#to recognize if the files for post analysis are in reads number or percent (abundance required)
-			mappedread=`awk '{if($1=="+"){print $4-2}}' $gvector`
-			awk -v map=$mappedread '{if($1=="*"){printf "%d %d\n",$2, ($3*map)/100}}' $gvector > tmp.dat
-									
-		#####trade gi x ti#########
+		#mappedread=`awk '{if($1=="+"){print $4-2}}' $gvector`
+		#awk -v map=$mappedread '{if($1=="*"){printf "%d %d\n",$2, ($3*map)/100}}' $gvector > tmp.dat
+		awk '{if($1=="@"){print $2, $3}}' $gvector > index.dat
+		awk '{if($1=="*"){print $2, $3}}' $gvector > ids.dat
+
+		if [ "$ABUNDANCE" == "" ];then
+			awk '{if(NR==FNR){n[$1]=$2}else{if($1 in n){print $2, n[$1]}}}' ids.dat index.dat > sigmaids.dat
+		else
+			if [ "$READTYPE" == "PAIRED" ];then
+				awk -v abu=$ABUNDANCE '{if(NR==FNR){n[$1]=$2}else{if($1 in n){print $2, n[$1]*abu*2/100}}}' ids.dat index.dat > sigmaids.dat
+			else
+				awk -v abu=$ABUNDANCE '{if(NR==FNR){n[$1]=$2}else{if($1 in n){print $2, n[$1]*abu/100}}}' ids.dat index.dat > sigmaids.dat
+			fi
+		fi
 		cp sigmaids.dat tmp.dat
-		
+		#####trade gi x ti#########
 		for gi in `awk '{print $1}' tmp.dat`	
 		do
 			ti=""
@@ -311,7 +295,7 @@ function sigmaFunction {
 		done
 					
 		echo "$gvector file formated"
-		rm tmp.dat
+		rm tmp.dat index.dat ids.dat
 		mv sigmaids.dat parsed_$gvector.dat
 
 	done
@@ -349,24 +333,26 @@ function constrainsFunction {
 			if [ "$ABUNDANCE" == "" ]; then			
 				reads=`echo "$line" |awk '{print $2}'`
 			else
-				reads=`echo "$line" |awk -v abu=$ABUNDANCE '{print ($2*abu)/100}'`
+				if [ "$READTYPE" == "PAIRED" ]; then			
+					reads=`echo "$line" |awk -v abu=$ABUNDANCE '{print ($2*abu*2)/100}'`
+				else
+					reads=`echo "$line" |awk -v abu=$ABUNDANCE '{print ($2*abu)/100}'`
+				fi
 			fi
 		
 			lineage=""
 			echo "fetching $genus $species lineage"
 			while [ "$lineage" == "" ]
 			do
-				lineage=`curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}'`
+				lineage=`curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{print $1, $2, $3, $4, $5}'`
 			done
-			echo "$lineage $species $genus...$species""_$reads" >> tmp
+			echo "$lineage $genus $species $genus...$species""_$reads" >> tmp
 		done < <(grep "" parsed_$profile.dat)
 		rm parsed_$profile.dat
 		mv tmp parsed_$profile.dat
 
 		echo "$profile file formated"
-
 	done
-
 	###########################################################
 	##############FETCHING TI BY GI############################
 	total=`ls -1 parsed_*.profiles.dat|wc -l`
@@ -381,33 +367,38 @@ function constrainsFunction {
 		sed "s/\.\.\./ /g" constrains_table.csv > tmp
 		sed "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name/g" tmp > tmp2
 		sed "s/\"//g" tmp2 > tmp3
-		awk 'BEGIN{FS=","}{gsub("\\.",",",$1);FS=" ";print $0}' tmp3 > constrains_table.csv
+		awk 'BEGIN{FS=","}{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > constrains_table.csv
 		rm tmp*
 	fi
 
 }
 
 function krakenFunction {
-	if [ "$DBKR" == "" ];then
-		echo "you must provide the kraken database folder for convertion names to tax id"
-		exit
-	fi
 
 	for kraken in `ls -1 *.kraken`
 	do
-		#for % reads
-		#totalreads=`wc -l $kraken |awk '{print $1}'`
-		#awk -v $totalreads=$totalreads 'BEGIN{FS=";"}{if(NR==FNR && $2!=""){n[$2]+=1}}END{for(key in n){print key";"n[key]/totalreads}}' $kraken > parsed_$kraken
-		awk 'BEGIN{FS=";"}{if(NR==FNR && $2!=""){n[$2]+=1}}END{for(key in n){print key";"n[key]}}' $kraken > tmp
+		#-1 for the root line
+		#NF contain numbers
+		#$1 reads number
+		awk -F "__" '{print $NF, $1}' $kraken |awk '{print $1, $2}' |head -n `wc -l $kraken |awk '{print $1-1}'` > parsed_$kraken.dat
+
 		while read line
 		do
-			name=`echo $line |awk 'BEGIN{FS=";"}{print $1}'`
-			reads=`echo $line |awk 'BEGIN{FS=";"}{print $2}'`
-			ti=`grep "$name" ${DBKR}/taxonomy/names.dmp |awk '{print $1}'` #this line will get the tax id
-			echo "$ti $reads"
-		done < <(grep "" tmp) > parsed_$kraken.dat
-		rm tmp
-		echo "$kraken file formated"	
+			genus=`echo "$line" |awk 'BEGIN{FS="_"}{print $1}'`
+			species=`echo "$line" |awk 'BEGIN{FS="_| "}{print $2}'`
+			reads=`echo "$line" |awk '{print $2}'`
+		
+			lineage=""
+			echo "fetching $genus $species lineage"
+			while [ "$lineage" == "" ]
+			do
+				lineage=`curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{print $1, $2, $3, $4, $5}'`
+			done
+			echo "$lineage $genus $species $genus...$species""_$reads" >> tmp
+		done < <(grep "" parsed_$kraken.dat)
+		rm parsed_$kraken.dat
+		mv tmp parsed_$kraken.dat
+		echo "$kraken file formated"
 	done
 
 	#####################################################
@@ -420,12 +411,12 @@ function krakenFunction {
 		makeCSV > makeCSV.R
 		Rscript makeCSV.R . .kraken.dat kraken_table.csv
 		rm parsed* makeCSV.R
-		sed "s/ti.//g" kraken_table.csv > tmp
-		sed "s/\"\"/ti/g" tmp > tmp2
-		sed "s/\"//g" tmp2 > kraken_table.csv
-		rm  tmp tmp2
+		sed "s/\.\.\./ /g" kraken_table.csv > tmp
+		sed "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name/g" tmp > tmp2
+		sed "s/\"//g" tmp2 > tmp3
+		awk 'BEGIN{FS=","}{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > kraken_table.csv
+		rm tmp*
 
-		TakeLineageFunction kraken_table.csv
 	fi
 
 }
@@ -458,7 +449,7 @@ for( i in 1:length(list_of_files)){
 # read in each table
 
 #read_counts <- lapply(list_of_files, read.table, sep="\t", header = FALSE, skip =2)
-if(pattr == ".dat.dat" || pattr == ".profiles.dat"){
+if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat" ){
 	read_counts <- lapply(list_of_files, read.table, sep="_", header = FALSE)
 }else{
 	read_counts <- lapply(list_of_files, read.table, sep=" ", header = FALSE)
@@ -469,7 +460,7 @@ if(pattr == ".dat.dat" || pattr == ".profiles.dat"){
 
 # for each table make the first col name OTU and the second the patient name
 
-if(pattr == ".dat.dat" || pattr == ".profiles.dat"){
+if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat"){
 	for( i in 1:length(list_of_files)){
   		colnames(read_counts[[i]])<- c(patient_names[i])
   		#print(read_counts[i])
@@ -483,7 +474,7 @@ if(pattr == ".dat.dat" || pattr == ".profiles.dat"){
 # list of lists called otu which stores the first column otu names for each dataframe
 otu<-NULL
 
-if(pattr == ".dat.dat" || pattr == ".profiles.dat"){
+if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat"){
 	for( i in 1:length(list_of_files)){
 	name<-paste(as.character(read_counts[[i]][,1]))
   	otu[i]<- list(name)
@@ -541,21 +532,27 @@ if [ $((statusband)) -ge 2 ]; then
 	do
 		case $g in
 			"PATHOSCOPE")
+				echo "Parsing pathoscope files"
 				pathoscopeFunction
 			;;
 			"METAPHLAN")
+				echo "Parsing metaphlan files"
 				metaphlanFunction
 	   		;;
 	   		"METAMIX")
+				echo "Parsing metamix files"
 	   			metamixFunction
 	   		;;
 	   		"SIGMA")
+				echo "Parsing sigma files"
 				sigmaFunction
 	   		;;
 	   		"CONSTRAINS")
+				echo "Parsing constrains files"
 	   			constrainsFunction
 	   		;;
 	   		"KRAKEN")
+				echo "Parsing kraken files"
 				krakenFunction
 			;;
 	   		*)
