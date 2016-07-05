@@ -122,11 +122,15 @@ function TakeLineageFunction {
 				nofetch=`cat tmp.xml`
 			done
 			name=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml` #be careful with \n
-			lineage=`awk 'BEGIN{FS="[<|>]";prev=""}{if($2=="ScientificName"){prev=$3}if($3=="superkingdom"){printf "%s,",prev}if($3=="phylum"){printf "%s,",prev}if($3=="class"){printf "%s,",prev}if($3=="order"){printf "%s,", prev}if($3=="family"){printf "%s,",prev}if($3=="genus"){printf "%s,",prev}if($3=="species"){printf "%s,",prev}}' tmp.xml`
+			spctoawk=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml |awk '{print $2}'`
+			lineage=`awk -v emergencyname=$spctoawk 'BEGIN{FS="[<|>]";prev="";superk="";phy="";class="";order="";fam="";gen="";spc=""}{if($2=="ScientificName"){prev=$3}if($3=="superkingdom"){superk=prev}if($3=="phylum"){phy=prev}if($3=="class"){class=prev}if($3=="order"){order=prev}if($3=="family"){fam=prev}if($3=="genus"){gen=prev}if($3=="species"){spc=prev}}
+			END{if(superk==""){printf "unknown,"}else{printf "%s,",superk};if(phy==""){printf "unknow,"}else{printf "%s,",phy}; if(class==""){printf "unknow,"}else{printf "%s,",class}; if(order==""){printf "unknow,"}else{printf "%s,",order}; if(fam==""){printf "unknow,"}else{printf "%s,",fam}; if(gen==""){printf "unknow,"}else{printf "%s,",gen}; if(spc==""){printf "%s,",emergencyname}else{printf "%s,",spc}}' tmp.xml`
 			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}'`
 			if [ "$cand" == "YES" ]; then
-				echo "unknow,unknow,unknow,unknow,unknow,unknow,unknow,$name," >> TaxonomyPredictionMatrix.csv
+				newname=`echo $name |awk '{print $1, $2}'` #be careful with $name, maybe is not made by 3 cols
+				echo "unknow,unknow,unknow,unknow,unknow,unknow,$newname,$name," >> TaxonomyPredictionMatrix.csv
 			else
+				name=`echo "$name" |awk '{print $1, $2}'`
 				echo "$lineage$name," >> TaxonomyPredictionMatrix.csv
 			fi
 			rm tmp.xml
@@ -208,7 +212,9 @@ done
 		sed "s/\.\.\./ /g" metaphlan_table.csv > tmp
 		sed "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name/g" tmp > tmp2
 		sed "s/\"//g" tmp2 > tmp3
-		awk 'BEGIN{FS=","}{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > metaphlan_table.csv
+		awk 'BEGIN{FS=","}{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > tmp4
+		awk -F"," '{if(NR==1){print $0;next}for(i=1;i<7;i++){printf "%s,",$i};printf "%s,%s,",$8,$8; for(i=9;i<NF;i++){printf "%s,",$i}; printf "%s\n",$NF}' tmp4 > metaphlan_table.csv
+
 		rm tmp*
 	fi
 }
@@ -325,6 +331,7 @@ function constrainsFunction {
 	for profile in `ls -1 *.profiles`
 	do
 		awk '{if(NR>1){print $1, $4}}' $profile > parsed_$profile.dat
+		rm -f tmp
 		while read line
 		do
 			genus=`echo "$line" |awk 'BEGIN{FS="_"}{print $1}'`
@@ -344,9 +351,15 @@ function constrainsFunction {
 			echo "fetching $genus $species lineage"
 			while [ "$lineage" == "" ]
 			do
-				lineage=`curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{print $1, $2, $3, $4, $5}'`
+				lineage=`curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{gsub("/","");print $1, $2, $3, $4, $5}'`
 			done
-			echo "$lineage $genus $species $genus...$species""_$reads" >> tmp
+
+			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}'`
+			if [ "$cand" == "YES" ]; then
+				echo "unknow,unknow,unknow,unknow,unknow,unknow,$genus $species,$genus...$species""_$reads" >> tmp
+			else
+				echo "$lineage $genus $species $genus...$species""_$reads" >> tmp
+			fi
 		done < <(grep "" parsed_$profile.dat)
 		rm parsed_$profile.dat
 		mv tmp parsed_$profile.dat
@@ -367,7 +380,8 @@ function constrainsFunction {
 		sed "s/\.\.\./ /g" constrains_table.csv > tmp
 		sed "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name/g" tmp > tmp2
 		sed "s/\"//g" tmp2 > tmp3
-		awk 'BEGIN{FS=","}{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > constrains_table.csv
+		awk 'BEGIN{FS=","}{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > tmp4
+		awk -F"," '{if(NR==1){print $0;next}for(i=1;i<7;i++){printf "%s,",$i};printf "%s,%s,",$8,$8; for(i=9;i<NF;i++){printf "%s,",$i}; printf "%s\n",$NF}' tmp4 > constrains_table.csv
 		rm tmp*
 	fi
 
@@ -380,21 +394,31 @@ function krakenFunction {
 		#-1 for the root line
 		#NF contain numbers
 		#$1 reads number
-		awk -F "__" '{print $NF, $1}' $kraken |awk '{print $1, $2}' |head -n `wc -l $kraken |awk '{print $1-1}'` > parsed_$kraken.dat
-
+		totallines=`wc -l $kraken |awk '{print $1-1}'`
+		awk -F "d__|p__|c__|o__|f__|g__|s__" -v total=$totallines '{if(NR<total){print $NF, $1}}' $kraken > parsed_$kraken.dat
+		rm -f tmp
 		while read line
 		do
 			genus=`echo "$line" |awk 'BEGIN{FS="_"}{print $1}'`
 			species=`echo "$line" |awk 'BEGIN{FS="_| "}{print $2}'`
+			#KRAKEN DOESN'T NEED ADJUST ABUNDANCE
 			reads=`echo "$line" |awk '{print $2}'`
 		
 			lineage=""
 			echo "fetching $genus $species lineage"
 			while [ "$lineage" == "" ]
 			do
-				lineage=`curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{print $1, $2, $3, $4, $5}'`
+				lineage=`curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{gsub("/","");print $1, $2, $3, $4, $5}'`
 			done
-			echo "$lineage $genus $species $genus...$species""_$reads" >> tmp
+
+			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}'`
+			if [ "$cand" == "YES" ]; then
+				genus=`echo "$line" |awk 'BEGIN{FS="_"}{print $2}'`
+				species=`echo "$line" |awk 'BEGIN{FS="_| "}{print $3}'`
+				echo "unknow,unknow,unknow,unknow,unknow,$genus $species,$genus...$species""_$reads" >> tmp
+			else
+				echo "$lineage $genus $species $genus...$species""_$reads" >> tmp
+			fi
 		done < <(grep "" parsed_$kraken.dat)
 		rm parsed_$kraken.dat
 		mv tmp parsed_$kraken.dat
@@ -414,9 +438,11 @@ function krakenFunction {
 		sed "s/\.\.\./ /g" kraken_table.csv > tmp
 		sed "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name/g" tmp > tmp2
 		sed "s/\"//g" tmp2 > tmp3
-		awk 'BEGIN{FS=","}{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > kraken_table.csv
-		rm tmp*
+		awk 'BEGIN{FS=","}{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > tmp4
+		awk -F"," '{if(NR==1){print $0;next}for(i=1;i<7;i++){printf "%s,",$i};printf "%s,%s,",$8,$8; for(i=9;i<NF;i++){printf "%s,",$i}; printf "%s\n",$NF}' tmp4 > kraken_table.csv
 
+		rm tmp*
+ 
 	fi
 
 }
@@ -476,11 +502,9 @@ otu<-NULL
 
 if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat"){
 	for( i in 1:length(list_of_files)){
-	name<-paste(as.character(read_counts[[i]][,1]))
-  	otu[i]<- list(name)
-  	#print(otu[i])
-}
-
+		name<-paste(as.character(read_counts[[i]][,1]))
+	  	otu[i]<- list(name)
+	}
 }else{
 	for( i in 1:length(list_of_files)){
 	name<-paste("ti",as.character(read_counts[[i]][,1]))
