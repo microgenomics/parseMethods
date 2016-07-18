@@ -126,8 +126,9 @@ function TakeLineageFunction {
 			lineage=`awk -v emergencyname=$spctoawk 'BEGIN{FS="[<|>]";prev="";superk="";phy="";class="";order="";fam="";gen="";spc=""}{if($2=="ScientificName"){prev=$3}if($3=="superkingdom"){superk=prev}if($3=="phylum"){phy=prev}if($3=="class"){class=prev}if($3=="order"){order=prev}if($3=="family"){fam=prev}if($3=="genus"){gen=prev}if($3=="species"){spc=prev}}
 			END{if(superk==""){printf "unknown,"}else{printf "%s,",superk};if(phy==""){printf "unknow,"}else{printf "%s,",phy}; if(class==""){printf "unknow,"}else{printf "%s,",class}; if(order==""){printf "unknow,"}else{printf "%s,",order}; if(fam==""){printf "unknow,"}else{printf "%s,",fam}; if(gen==""){printf "unknow,"}else{printf "%s,",gen}; if(spc==""){printf "%s,",emergencyname}else{printf "%s,",spc}}' tmp.xml`
 			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}'`
+			lineage=`echo $lineage |awk '{gsub("\\[|\\]","");print $0}'`
 			if [ "$cand" == "YES" ]; then
-				newname=`echo $name |awk '{print $1, $2}'` #be careful with $name, maybe is not made by 3 cols
+				newname=`echo $name |awk '{print $2, $3}'` #be careful with $name, maybe is not made by 3 cols (Candidatus somegenus somespecies)
 				echo "unknow,unknow,unknow,unknow,unknow,unknow,$newname,$name," >> TaxonomyPredictionMatrix.csv
 			else
 				name=`echo "$name" |awk '{print $1, $2}'`
@@ -141,6 +142,9 @@ function TakeLineageFunction {
 	else
 		echo "$Matrix doesn't exist, nothing changes"
 	fi
+	awk '{gsub("\\[|\\]","");print}' $Matrix > tmp
+	rm $Matrix
+	mv tmp $Matrix
 
 }
 
@@ -293,7 +297,11 @@ function sigmaFunction {
 				ti=`curl -s "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=nuccore&db=taxonomy&id=$gi" |grep "<Id>"|tail -n1 |awk '{print $1}' |cut -d '>' -f 2 |cut -d '<' -f 1`
 				#echo "ti: $ti"
 			done
-			
+			if [ "$ti" == "$gi" ];then
+				ti=`curl -s "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=$gi" |head -n20 |grep "id" |awk '{print $2}'`
+			else
+				echo "$ti $abu" >> realdata.dat
+			fi
 			sed "s/[[:<:]]$gi[[:>:]]/$ti/g" sigmaids.dat > tmp
 			rm sigmaids.dat
 			mv tmp sigmaids.dat
@@ -408,7 +416,7 @@ function krakenFunction {
 			echo "fetching $genus $species lineage"
 			while [ "$lineage" == "" ]
 			do
-				lineage=`curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{gsub("/","");print $1, $2, $3, $4, $5}'`
+				lineage=`curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{gsub("/","");gsub("\\[|\\]","");print $1, $2, $3, $4, $5}'`
 			done
 
 			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}'`
