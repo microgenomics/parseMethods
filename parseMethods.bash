@@ -15,6 +15,7 @@ fi
 #sigma: we assume when you worked with sigma, the names of the each fasta folder were the same that fasta gi (consult the script prepare sigmaDB if you don't have this format).
 #metaphlan: the results must have .dat exetension, you can change the actual extension for .dat and the script works anyway
 #metamix: pathoscope and metamix use the tsv extension, so, it will be recognize in form metamix<some name>.tsv
+#all files fetch for species name
 
 #####################################################################################################################
 #####################					PARSE PARAMETERS SECTION			#########################################
@@ -101,6 +102,22 @@ done
 
 
 ###############################					FUNCTION DECLARATION				#################################
+function groupingFunction {
+	echo 'args<-commandArgs()
+	file<-c(args[6])
+	headr<-c(args[7])
+	if(headr=="T"){
+			df<-read.csv(file, header = T, check.names = F)
+			newdf<-aggregate(. ~ Species, df, FUN = sum)
+
+	}else{
+			df<-read.csv(file, header = F)
+			colnames(df)<-c("COL1","COL2")
+			newdf<-aggregate(. ~ COL1, df, FUN = sum)
+	}
+	write.table(newdf,file,row.names = F,quote = F)' > grp.R
+}
+
 function TakeLineageFunction {
 	#################################################################################################################################################
 	#this function take a tax id from the result files and fetch the lineage to save it in the same file that has already parsed by other functions.
@@ -144,7 +161,13 @@ function TakeLineageFunction {
 	fi
 	awk '{gsub("\\[|\\]","");print}' $Matrix > tmp
 	rm $Matrix
-	mv tmp $Matrix
+	awk -F"," '{for(i=1;i<NF;i++){if(i!=9){printf "%s,",$i}}printf "%s\n",$NF}' tmp > $Matrix
+	rm tmp
+
+	echo "Grouping otus simulated otus"
+	groupingFunction
+	Rscript grp.R $Matrix T
+	rm grp.R
 
 }
 
@@ -175,6 +198,7 @@ function pathoscopeFunction {
 		rm  tmp tmp2
 
 		TakeLineageFunction pathoscope_table.csv
+
 
 	fi
 }
