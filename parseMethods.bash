@@ -51,6 +51,7 @@ do
 		echo "c) If ABUNDANCE is provided, you should also provide the READTYPE (PAIRED or SINGLE in the config file), this only multiply de abundance for 2 (if is paired) or not if is single"
 		echo "c) To apply Perdonazo method, you must especify in the config file the parameter ABSENT=YES, the script automatically calculate corresponding data"		
 		echo "finally, don't use \",\" to name your files, this script will generate a csv and may cause problems"
+		echo "DEPENDENCES: stable internet connection"
 		exit
 	;;
 	*)
@@ -108,14 +109,15 @@ function groupingFunction {
 	headr<-c(args[7])
 	if(headr=="T"){
 			df<-read.csv(file, header = T, check.names = F)
-			newdf<-aggregate(. ~ Species, df, FUN = sum)
+			newdf<-aggregate(. ~ Name + Species + Genus + Family + Order + Class + Phylum + Kingdom, df, FUN = sum)
+      		newdf<-newdf[,c(8,7,6,5,4,3,2,1,9:length(colnames(newdf)))]
 
 	}else{
 			df<-read.csv(file, header = F)
 			colnames(df)<-c("COL1","COL2")
 			newdf<-aggregate(. ~ COL1, df, FUN = sum)
 	}
-	write.table(newdf,file,row.names = F,quote = F)' > grp.R
+	write.csv(newdf,file,row.names = F,quote = F)' > grp.R
 }
 
 function TakeLineageFunction {
@@ -161,6 +163,7 @@ function TakeLineageFunction {
 	fi
 	awk '{gsub("\\[|\\]","");print}' $Matrix > tmp
 	rm $Matrix
+	#only get by species
 	awk -F"," '{for(i=1;i<NF;i++){if(i!=9){printf "%s,",$i}}printf "%s\n",$NF}' tmp > $Matrix
 	rm tmp
 
