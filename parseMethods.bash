@@ -137,8 +137,12 @@ function TakeLineageFunction {
 			nofetch=""
 			while [ "$nofetch" == "" ] || [[ "$nofetch" =~ "Connection refused" ]]
 			do
-				curl -s "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id=$ti" > tmp.xml
-				nofetch=`cat tmp.xml`
+				if curl -s "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id=$ti" > tmp.xml ;then
+					nofetch=`cat tmp.xml`
+				else
+					echo "curl error fetch, internet connection?"
+				fi
+				
 			done
 			name=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml` #be careful with \n
 			spctoawk=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml |awk '{print $2}'`
