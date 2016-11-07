@@ -137,7 +137,7 @@ function TakeLineageFunction {
 			nofetch=""
 			while [ "$nofetch" == "" ] || [[ "$nofetch" =~ "Connection refused" ]]
 			do
-				if curl -s "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id=$ti" > tmp.xml ;then
+				if curl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id=$ti" > tmp.xml ;then
 					nofetch=`cat tmp.xml`
 				else
 					echo "curl error fetch, internet connection?"
@@ -147,7 +147,7 @@ function TakeLineageFunction {
 			name=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml` #be careful with \n
 			spctoawk=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml |awk '{print $2}'`
 			lineage=`awk -v emergencyname=$spctoawk 'BEGIN{FS="[<|>]";prev="";superk="";phy="";class="";order="";fam="";gen="";spc=""}{if($2=="ScientificName"){prev=$3}if($3=="superkingdom"){superk=prev}if($3=="phylum"){phy=prev}if($3=="class"){class=prev}if($3=="order"){order=prev}if($3=="family"){fam=prev}if($3=="genus"){gen=prev}if($3=="species"){spc=prev}}
-			END{if(superk==""){printf "unknown,"}else{printf "%s,",superk};if(phy==""){printf "unknow,"}else{printf "%s,",phy}; if(class==""){printf "unknow,"}else{printf "%s,",class}; if(order==""){printf "unknow,"}else{printf "%s,",order}; if(fam==""){printf "unknow,"}else{printf "%s,",fam}; if(gen==""){printf "unknow,"}else{printf "%s,",gen}; if(spc==""){printf "%s,",emergencyname}else{printf "%s,",spc}}' tmp.xml`
+			END{if(superk==""){printf "unknown,"}else{printf "%s,",superk};if(phy==""){printf "unknow,"}else{printf "%s,",phy}; if(class==""){printf "unknow,"}else{printf "%s,",class}; if(order==""){printf "unknow,"}else{printf "%s,",order}; if(fam==""){printf "unknow,"}else{printf "%s,",fam}; if(gen==""){printf "unknow,"}else{printf "%s,",gen}; if(spc==""){if(emergencyname==""){print "unknow,"}else{printf "%s,",emergencyname}}else{printf "%s,",spc}}' tmp.xml`
 			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}'`
 			lineage=`echo $lineage |awk '{gsub("\\[|\\]","");print $0}'`
 			if [ "$cand" == "YES" ]; then
@@ -175,9 +175,7 @@ function TakeLineageFunction {
 	groupingFunction
 	Rscript grp.R $Matrix T
 	rm grp.R
-
 }
-
 function pathoscopeFunction {
 	###################################################################################################################################################################################
 	#this function take the pathoscope results (tsv file), and parse it to leave only the tax id and number of mapped reads (% mapped reads if you specify an abundance in config file)
@@ -206,34 +204,33 @@ function pathoscopeFunction {
 
 		TakeLineageFunction pathoscope_table.csv
 
-
 	fi
 }
 function metaphlanFunction {
 
-for datfile in `ls -1 metaphlan*.dat`
-do
-		#if to recognize if the files for post analysis are in reads number or percent (abundance required)
-		if [ "$ABUNDANCE" == "" ]; then
-			sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print $2}' | sed '1!G;h;$!d' > quantities
-		else
-			if [ "$READTYPE" == "PAIRED" ]; then
-				sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print (($2*abu)*2)/100}' | sed '1!G;h;$!d' > quantities
+	for datfile in `ls -1 metaphlan*.dat`
+	do
+			#if to recognize if the files for post analysis are in reads number or percent (abundance required)
+			if [ "$ABUNDANCE" == "" ]; then
+				sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print $2}' | sed '1!G;h;$!d' > quantities
 			else
-				sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print ($2*abu)/100}' | sed '1!G;h;$!d' > quantities
+				if [ "$READTYPE" == "PAIRED" ]; then
+					sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print (($2*abu)*2)/100}' | sed '1!G;h;$!d' > quantities
+				else
+					sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print ($2*abu)/100}' | sed '1!G;h;$!d' > quantities
+				fi
 			fi
-		fi
 
-		sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $3, $6, $9, $12, $15, $18, $22, $18"..."$22}' > sname
-		#sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $22}' > sname
-		paste -d '_' sname quantities > metaphlanid.dat
-		rm sname quantities
-		
-		########################################
-		datfile=`echo "$datfile" |sed "s/,/./g"`
-		mv metaphlanid.dat parsed_$datfile.dat
-		echo "$datfile file formated"
-done
+			sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $3, $6, $9, $12, $15, $18, $22, $18"..."$22}' > sname
+			#sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $22}' > sname
+			paste -d '_' sname quantities > metaphlanid.dat
+			rm sname quantities
+			
+			########################################
+			datfile=`echo "$datfile" |sed "s/,/./g"`
+			mv metaphlanid.dat parsed_$datfile.dat
+			echo "$datfile file formated"
+	done
 
 	total=`ls -1 *.dat.dat |wc -l`
 	if [ $((total)) -le 1 ]; then
@@ -295,7 +292,6 @@ function metamixFunction {
 		TakeLineageFunction metamix_table.csv
 	fi
 }
-
 function sigmaFunction {
 	#####################################################################################################################################################
 	#this function take the sigma results (gvector.txt file), and parse it to leave only the tax id (fetch ti by gi is necessary in this function)
@@ -325,11 +321,11 @@ function sigmaFunction {
 			ti=""
 			while [ "$ti" == "" ]
 			do
-				ti=`curl -s "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=nuccore&db=taxonomy&id=$gi" |grep "<Id>"|tail -n1 |awk '{print $1}' |cut -d '>' -f 2 |cut -d '<' -f 1`
+				ti=`curl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=nuccore&db=taxonomy&id=$gi" |grep "<Id>"|tail -n1 |awk '{print $1}' |cut -d '>' -f 2 |cut -d '<' -f 1`
 				#echo "ti: $ti"
 			done
 			if [ "$ti" == "$gi" ];then
-				ti=`curl -s "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=$gi" |head -n20 |grep "id" |awk '{print $2}'`
+				ti=`curl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=$gi" |head -n20 |grep "id" |awk '{print $2}'`
 			else
 				echo "$ti $abu" >> realdata.dat
 			fi
@@ -360,11 +356,8 @@ function sigmaFunction {
 		sed "s/\"//g" tmp2 > sigma_table.csv
 		rm tmp tmp2
 		TakeLineageFunction sigma_table.csv
-	fi
-	
+	fi	
 }
-
-
 function constrainsFunction {
 	
 	for profile in `ls -1 *.profiles`
@@ -390,7 +383,7 @@ function constrainsFunction {
 			echo "fetching $genus $species lineage"
 			while [ "$lineage" == "" ]
 			do
-				lineage=`curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{gsub("/","");print $1, $2, $3, $4, $5}'`
+				lineage=`curl -s "https://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{gsub("/","");print $1, $2, $3, $4, $5}'`
 			done
 
 			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}'`
@@ -423,9 +416,7 @@ function constrainsFunction {
 		awk -F"," '{if(NR==1){print $0;next}for(i=1;i<7;i++){printf "%s,",$i};printf "%s,%s,",$8,$8; for(i=9;i<NF;i++){printf "%s,",$i}; printf "%s\n",$NF}' tmp4 > constrains_table.csv
 		rm tmp*
 	fi
-
 }
-
 function krakenFunction {
 
 	for kraken in `ls -1 *.kraken`
@@ -447,7 +438,7 @@ function krakenFunction {
 			echo "fetching $genus $species lineage"
 			while [ "$lineage" == "" ]
 			do
-				lineage=`curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{gsub("/","");gsub("\\[|\\]","");print $1, $2, $3, $4, $5}'`
+				lineage=`curl -s "https://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{gsub("/","");gsub("\\[|\\]","");print $1, $2, $3, $4, $5}'`
 			done
 
 			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}'`
@@ -483,107 +474,137 @@ function krakenFunction {
 		rm tmp*
  
 	fi
+}
+function taxatorFunction {
+	
+	###################################################################################################################################################################################
+	#this function take the taxator results (tax file), and parse it to leave only the tax id and number of mapped reads (% mapped reads if you specify an abundance in config file)
+	###################################################################################################################################################################################
+
+	for taxfile in `ls -1 taxator*.tax`
+	do
+		grep -v "#" $taxfile |grep -v "@" |awk '{if($1!="")print $2}' |sort |uniq -c |sort -nr |awk '{print $2, $1}' > taxid.dat
+		tsvfile=`echo "$tsvfile" |sed "s/,/./g"`
+		mv taxid.dat parsed_$taxfile.dat
+		echo "$taxfile file formated"
+	done	
+		total=`ls -1 parsed_*.tax.dat |wc -l`
+	if [ $((total)) -le 1 ]; then
+		echo "need at least 2 files to make a table"
+	else
+		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
+		#parameters: work_directory pattern_file name_out_table
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . tax.dat taxator_table.csv
+		rm parsed* makeCSV.R
+		sed "s/ti.//g" taxator_table.csv > tmp
+		sed "s/\"\"/\"ti\"/g" tmp > tmp2
+		sed "s/\"//g" tmp2 > taxator_table.csv && rm  tmp tmp2
+
+		TakeLineageFunction taxator_table.csv
+	fi
 
 }
 function makeCSV {
-echo 'library(xlsx)
-library(gtools)
 
-args <-commandArgs()
-
-directory<-args[6]
-pattr<-args[7]
-outtable<-args[8]
-
-setwd(directory)
-
-#filename<-args[6]
-#filedata<-args[7]
-
-
-list_of_files <- list.files(path=directory, pattern = pattr)
-# make a list of just the patient names
-
-patient_names<-NULL
-
-for( i in 1:length(list_of_files)){
-#  patient_names[i]<-substring(list_of_files[i], 1, 6)
-  patient_names[i]<-substr(list_of_files[i],1,nchar(list_of_files[i])-4)
-}
-
-# read in each table
-
-#read_counts <- lapply(list_of_files, read.table, sep="\t", header = FALSE, skip =2)
-if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat" ){
-	read_counts <- lapply(list_of_files, read.table, sep="_", header = FALSE)
-}else{
-	read_counts <- lapply(list_of_files, read.table, sep=" ", header = FALSE)
-#read_counts <- lapply(read_counts, function(x) x[, c(1,2)])
-#read_counts <- lapply(read_counts, function(x) x[complete.cases(x),])
-}
-
-
-# for each table make the first col name OTU and the second the patient name
-
-if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat"){
+	echo 'library(xlsx)
+	library(gtools)
+	
+	args <-commandArgs()
+	
+	directory<-args[6]
+	pattr<-args[7]
+	outtable<-args[8]
+	
+	setwd(directory)
+	
+	#filename<-args[6]
+	#filedata<-args[7]
+	
+	
+	list_of_files <- list.files(path=directory, pattern = pattr)
+	# make a list of just the patient names
+	
+	patient_names<-NULL
+	
 	for( i in 1:length(list_of_files)){
-  		colnames(read_counts[[i]])<- c(patient_names[i])
-  		#print(read_counts[i])
+	#  patient_names[i]<-substring(list_of_files[i], 1, 6)
+	  patient_names[i]<-substr(list_of_files[i],1,nchar(list_of_files[i])-4)
 	}
-}else{
+	
+	# read in each table
+	
+	#read_counts <- lapply(list_of_files, read.table, sep="\t", header = FALSE, skip =2)
+	if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat" ){
+		read_counts <- lapply(list_of_files, read.table, sep="_", header = FALSE)
+	}else{
+		read_counts <- lapply(list_of_files, read.table, sep=" ", header = FALSE)
+	#read_counts <- lapply(read_counts, function(x) x[, c(1,2)])
+	#read_counts <- lapply(read_counts, function(x) x[complete.cases(x),])
+	}
+	
+	
+	# for each table make the first col name OTU and the second the patient name
+	
+	if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat"){
+		for( i in 1:length(list_of_files)){
+	  		colnames(read_counts[[i]])<- c(patient_names[i])
+	  		#print(read_counts[i])
+		}
+	}else{
+		for( i in 1:length(list_of_files)){
+	  		colnames(read_counts[[i]])<- c("ti", patient_names[i])
+		}
+	}
+	
+	# list of lists called otu which stores the first column otu names for each dataframe
+	otu<-NULL
+	
+	if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat"){
+		for( i in 1:length(list_of_files)){
+			name<-paste(as.character(read_counts[[i]][,1]))
+		  	otu[i]<- list(name)
+		}
+	}else{
+		for( i in 1:length(list_of_files)){
+		name<-paste("ti",as.character(read_counts[[i]][,1]))
+	    otu[i]<- list(name)
+		}
+	}
+	
+	
+	# for each dataframe in read_counts transpose and then 
+	
+	read_counts <- lapply(read_counts, function(x) t(x[,2]))
+	
+	# add the otus back as the column name
+	
 	for( i in 1:length(list_of_files)){
-  		colnames(read_counts[[i]])<- c("ti", patient_names[i])
+	  read_counts[[i]]<-data.frame(read_counts[[i]])
+	#  print(read_counts[[i]])
+		#print(otu[i])
+	  colnames(read_counts[[i]])<-otu[[i]]
+	  #print(read_counts[i])
+	  read_counts[[i]]<-data.frame(patient = patient_names[i], read_counts[[i]])
+	#print(paste("reaaad:",read_counts[i]))
 	}
-}
-
-# list of lists called otu which stores the first column otu names for each dataframe
-otu<-NULL
-
-if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat"){
-	for( i in 1:length(list_of_files)){
-		name<-paste(as.character(read_counts[[i]][,1]))
-	  	otu[i]<- list(name)
+	
+	# combine the different dataframes together
+	otu_table <- read_counts[[1]]
+	for( i in 2:length(list_of_files)){
+	  otu_table <- smartbind(otu_table, read_counts[[i]], fill = 0)
 	}
-}else{
-	for( i in 1:length(list_of_files)){
-	name<-paste("ti",as.character(read_counts[[i]][,1]))
-    otu[i]<- list(name)
-	}
-}
-
-
-# for each dataframe in read_counts transpose and then 
-
-read_counts <- lapply(read_counts, function(x) t(x[,2]))
-
-# add the otus back as the column name
-
-for( i in 1:length(list_of_files)){
-  read_counts[[i]]<-data.frame(read_counts[[i]])
-#  print(read_counts[[i]])
-	#print(otu[i])
-  colnames(read_counts[[i]])<-otu[[i]]
-  #print(read_counts[i])
-  read_counts[[i]]<-data.frame(patient = patient_names[i], read_counts[[i]])
-#print(paste("reaaad:",read_counts[i]))
-}
-
-# combine the different dataframes together
-otu_table <- read_counts[[1]]
-for( i in 2:length(list_of_files)){
-  otu_table <- smartbind(otu_table, read_counts[[i]], fill = 0)
-}
-
-# transpose the table back so that the microbes are the rows and the patients are the col
-
-otu_table<-t(data.matrix(otu_table))
-colnames(otu_table)<-patient_names
-otu_table<-otu_table[2:nrow(otu_table),]
-
-# remove zeroes
-otu_table_noZeroes<-otu_table[apply(otu_table, 1, function(x){ !isTRUE(all.equal(sum(x),0))}),]
-#print(otu_table_noZeroes[,1])
-write.csv(otu_table_noZeroes,outtable)'
+	
+	# transpose the table back so that the microbes are the rows and the patients are the col
+	
+	otu_table<-t(data.matrix(otu_table))
+	colnames(otu_table)<-patient_names
+	otu_table<-otu_table[2:nrow(otu_table),]
+	
+	# remove zeroes
+	otu_table_noZeroes<-otu_table[apply(otu_table, 1, function(x){ !isTRUE(all.equal(sum(x),0))}),]
+	#print(otu_table_noZeroes[,1])
+	write.csv(otu_table_noZeroes,outtable)'
 }
 
 
@@ -618,9 +639,12 @@ if [ $((statusband)) -ge 2 ]; then
 				echo "Parsing kraken files"
 				krakenFunction
 			;;
+	   		"TAXATOR")
+				echo "Parsing taxator files"
+				taxatorFunction
+			;;
 	   		*)
 	   			echo "no method aviable for $METHOD"
-	   			exit
 	   		;;
 		esac
 	done
