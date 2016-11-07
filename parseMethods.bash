@@ -119,7 +119,6 @@ function groupingFunction {
 	}
 	write.csv(newdf,file,row.names = F,quote = F)' > grp.R
 }
-
 function TakeLineageFunction {
 	#################################################################################################################################################
 	#this function take a tax id from the result files and fetch the lineage to save it in the same file that has already parsed by other functions.
