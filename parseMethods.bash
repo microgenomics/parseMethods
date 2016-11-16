@@ -140,8 +140,7 @@ function TakeLineageFunction {
 					nofetch=`cat tmp.xml`
 				else
 					echo "curl error fetch, internet connection?"
-				fi
-				
+				fi	
 			done
 			name=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml` #be careful with \n
 			spctoawk=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml |awk '{print $2}'`
@@ -197,9 +196,7 @@ function pathoscopeFunction {
 		Rscript makeCSV.R . tsv.dat pathoscope_table.csv
 		rm parsed* makeCSV.R
 		sed "s/ti.//g" pathoscope_table.csv > tmp
-		sed "s/\"\"/\"ti\"/g" tmp > tmp2
-		sed "s/\"//g" tmp2 > pathoscope_table.csv
-		rm  tmp tmp2
+		rm pathoscope_table && mv tmp pathoscope_table.csv
 
 		TakeLineageFunction pathoscope_table.csv
 
@@ -285,9 +282,7 @@ function metamixFunction {
 		Rscript makeCSV.R . tsv.dat metamix_table.csv
 		rm parsed* makeCSV.R
 		sed "s/ti.//g" metamix_table.csv > tmp
-		sed "s/\"\"/\"ti\"/g" tmp > tmp2
-		sed "s/\"//g" tmp2 > metamix_table.csv
-		rm tmp tmp2
+		rm metamix_table.csv && mv tmp metamix_table
 		TakeLineageFunction metamix_table.csv
 	fi
 }
@@ -351,9 +346,7 @@ function sigmaFunction {
 		Rscript makeCSV.R . gvector.txt.dat sigma_table.csv
 		rm parsed* makeCSV.R
 		sed "s/ti.//g" sigma_table.csv > tmp
-		sed "s/\"\"/\"ti\"/g" tmp > tmp2
-		sed "s/\"//g" tmp2 > sigma_table.csv
-		rm tmp tmp2
+		rm sigma_table && mv tmo sigma_table
 		TakeLineageFunction sigma_table.csv
 	fi	
 }
@@ -496,9 +489,8 @@ function taxatorFunction {
 		makeCSV > makeCSV.R
 		Rscript makeCSV.R . tax.dat taxator_table.csv
 		rm parsed* makeCSV.R
-		sed "s/ti.//g" taxator_table.csv > tmp
-		sed "s/\"\"/\"ti\"/g" tmp > tmp2
-		sed "s/\"//g" tmp2 > taxator_table.csv && rm  tmp tmp2
+		sed "s/ti\.//g" taxator_table.csv > tmp
+		rm taxator_table && mv tmp taxator_table.csv
 
 		TakeLineageFunction taxator_table.csv
 	fi
@@ -603,7 +595,7 @@ function makeCSV {
 	# remove zeroes
 	otu_table_noZeroes<-otu_table[apply(otu_table, 1, function(x){ !isTRUE(all.equal(sum(x),0))}),]
 	#print(otu_table_noZeroes[,1])
-	write.csv(otu_table_noZeroes,outtable)'
+	write.csv(otu_table_noZeroes,outtable,quote = F)'
 }
 
 
