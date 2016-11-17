@@ -50,7 +50,7 @@ do
 		echo "b) If ABUNDANCE is missing (--abundance), metaphlan, constrains and sigma results will write in percent and others in reads number (default), providing an ABUNDANCE will set all results in reads number. This value can be obtained from total lines of your reads files previously used"
 		echo "c) If ABUNDANCE is provided, you should also provide the READTYPE (PAIRED or SINGLE in the config file), this only multiply de abundance for 2 (if is paired) or not if is single"
 		echo "c) To apply Perdonazo method, you must especify in the config file the parameter ABSENT=YES, the script automatically calculate corresponding data"		
-		echo "finally, don't use \",\" to name your files, this script will generate a csv and may cause problems"
+		echo "finally, don't use ',' to name your files, this script will generate a csv and ',' may cause problems"
 		echo "DEPENDENCES: stable internet connection"
 		exit
 	;;
