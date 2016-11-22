@@ -128,7 +128,7 @@ function TakeLineageFunction {
 	if [ -f $Matrix ]; then
 		#print the headers for the csv
 		echo 'Kingdom,Phylum,Class,Order,Family,Genus,Species,Name,' >> TaxonomyPredictionMatrix.csv 
-		for ti in `awk 'BEGIN{FS=","}{if(NR>1){print $1}}' $Matrix`
+		for ti in $(awk 'BEGIN{FS=","}{if(NR>1){print $1}}' $Matrix)
 		do
 			echo "fetching lineage from ti: $ti"
 			 #warning, no error tolerance (I never get the error for cover the case)
@@ -137,22 +137,22 @@ function TakeLineageFunction {
 			while [ "$nofetch" == "" ] || [[ "$nofetch" =~ "Connection refused" ]]
 			do
 				if curl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id=$ti" > tmp.xml ;then
-					nofetch=`cat tmp.xml`
+					nofetch=$(cat tmp.xml)
 				else
 					echo "curl error fetch, internet connection?"
 				fi	
 			done
-			name=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml` #be careful with \n
-			spctoawk=`awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml |awk '{print $2}'`
-			lineage=`awk -v emergencyname=$spctoawk 'BEGIN{FS="[<|>]";prev="";superk="";phy="";class="";order="";fam="";gen="";spc=""}{if($2=="ScientificName"){prev=$3}if($3=="superkingdom"){superk=prev}if($3=="phylum"){phy=prev}if($3=="class"){class=prev}if($3=="order"){order=prev}if($3=="family"){fam=prev}if($3=="genus"){gen=prev}if($3=="species"){spc=prev}}
-			END{if(superk==""){printf "unknown,"}else{printf "%s,",superk};if(phy==""){printf "unknow,"}else{printf "%s,",phy}; if(class==""){printf "unknow,"}else{printf "%s,",class}; if(order==""){printf "unknow,"}else{printf "%s,",order}; if(fam==""){printf "unknow,"}else{printf "%s,",fam}; if(gen==""){printf "unknow,"}else{printf "%s,",gen}; if(spc==""){if(emergencyname==""){print "unknow,"}else{printf "%s,",emergencyname}}else{printf "%s,",spc}}' tmp.xml`
-			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}'`
-			lineage=`echo $lineage |awk '{gsub("\\[|\\]","");print $0}'`
+			name=$(awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml) #be careful with \n
+			spctoawk=$(awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml |awk '{print $2}')
+			lineage=$(awk -v emergencyname=$spctoawk 'BEGIN{FS="[<|>]";prev="";superk="";phy="";class="";order="";fam="";gen="";spc=""}{if($2=="ScientificName"){prev=$3}if($3=="superkingdom"){superk=prev}if($3=="phylum"){phy=prev}if($3=="class"){class=prev}if($3=="order"){order=prev}if($3=="family"){fam=prev}if($3=="genus"){gen=prev}if($3=="species"){spc=prev}}
+			END{if(superk==""){printf "unknown,"}else{printf "%s,",superk};if(phy==""){printf "unknow,"}else{printf "%s,",phy}; if(class==""){printf "unknow,"}else{printf "%s,",class}; if(order==""){printf "unknow,"}else{printf "%s,",order}; if(fam==""){printf "unknow,"}else{printf "%s,",fam}; if(gen==""){printf "unknow,"}else{printf "%s,",gen}; if(spc==""){if(emergencyname==""){print "unknow,"}else{printf "%s,",emergencyname}}else{printf "%s,",spc}}' tmp.xml)
+			cand=$(echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}')
+			lineage=$(echo $lineage |awk '{gsub("\\[|\\]","");print $0}')
 			if [ "$cand" == "YES" ]; then
-				newname=`echo $name |awk '{print $2, $3}'` #be careful with $name, maybe is not made by 3 cols (Candidatus somegenus somespecies)
+				newname=$(echo $name |awk '{print $2, $3}') #be careful with $name, maybe is not made by 3 cols (Candidatus somegenus somespecies)
 				echo "unknow,unknow,unknow,unknow,unknow,unknow,$newname,$name," >> TaxonomyPredictionMatrix.csv
 			else
-				name=`echo "$name" |awk '{print $1, $2}'`
+				name=$(echo "$name" |awk '{print $1, $2}')
 				echo "$lineage$name," >> TaxonomyPredictionMatrix.csv
 			fi
 			rm tmp.xml
@@ -179,14 +179,14 @@ function pathoscopeFunction {
 	#this function take the pathoscope results (tsv file), and parse it to leave only the tax id and number of mapped reads (% mapped reads if you specify an abundance in config file)
 	###################################################################################################################################################################################
 
-	for tsvfile in `ls -1 pathoscope*.tsv`
+	for tsvfile in $(ls -1 pathoscope*.tsv)
 	do
 		awk 'BEGIN{FS="|"}{print $2}' $tsvfile |awk '{if(NR>2)print $1, $4}' > pathoids.dat
-		tsvfile=`echo "$tsvfile" |sed "s/,/./g"`
+		tsvfile=$(echo "$tsvfile" |sed "s/,/./g")
 		mv pathoids.dat parsed_$tsvfile.dat
 		echo "$tsvfile file formated"
 	done	
-		total=`ls -1 *.tsv.dat |wc -l`
+		total=$(ls -1 *.tsv.dat |wc -l)
 	if [ $((total)) -le 1 ]; then
 		echo "need at least 2 files to make a table"
 	else
@@ -494,7 +494,29 @@ function taxatorFunction {
 
 		TakeLineageFunction taxator_table.csv
 	fi
+}
+function centrifugeFunction {
 
+	for tsvfile in $(ls -1 centrifuge*.tsv)
+	do
+		awk -F"\t" '{if(NR>1)print $2"\t"$5}' $tsvfile > centrifugeid.dat
+		mv centrifugeid.dat parsed_$tsvfile.cf
+		echo "$tsvfile file formated"
+	done	
+	total=$(ls -1 parsed*.tsv.cf |wc -l)
+	if [ $((total)) -le 1 ]; then
+		echo "* need at least 2 files to make a table."
+		echo "* Done"
+	else
+		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
+		#parameters: work_directory pattern_file name_out_table
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . tsv.cf centrifuge_table.csv
+		rm parsed*.cf makeCSV.R
+
+		TakeLineageFunction centrifuge_table.csv
+
+	fi	
 }
 function makeCSV {
 
@@ -633,6 +655,10 @@ if [ $((statusband)) -ge 2 ]; then
 	   		"TAXATOR")
 				echo "Parsing taxator files"
 				taxatorFunction
+			;;
+			"CENTRIFUGE")
+				echo "Parsing centrifuge files"
+				centrifugeFunction
 			;;
 	   		*)
 	   			echo "no method aviable for $METHOD"
