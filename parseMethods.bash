@@ -196,7 +196,7 @@ function pathoscopeFunction {
 		Rscript makeCSV.R . tsv.dat pathoscope_table.csv
 		rm parsed* makeCSV.R
 		sed "s/ti.//g" pathoscope_table.csv > tmp
-		rm pathoscope_table && mv tmp pathoscope_table.csv
+		rm -f pathoscope_table && mv tmp pathoscope_table.csv
 
 		TakeLineageFunction pathoscope_table.csv
 
@@ -204,7 +204,7 @@ function pathoscopeFunction {
 }
 function metaphlanFunction {
 
-	for datfile in `ls -1 metaphlan*.dat`
+	for datfile in $(ls -1 metaphlan*.dat)
 	do
 			#if to recognize if the files for post analysis are in reads number or percent (abundance required)
 			if [ "$ABUNDANCE" == "" ]; then
@@ -223,12 +223,12 @@ function metaphlanFunction {
 			rm sname quantities
 			
 			########################################
-			datfile=`echo "$datfile" |sed "s/,/./g"`
+			datfile=$(echo "$datfile" |sed "s/,/./g")
 			mv metaphlanid.dat parsed_$datfile.dat
 			echo "$datfile file formated"
 	done
 
-	total=`ls -1 *.dat.dat |wc -l`
+	total=$(ls -1 *.dat.dat |wc -l)
 	if [ $((total)) -le 1 ]; then
 		echo "need at least 2 files to make a table"
 	else
@@ -238,7 +238,7 @@ function metaphlanFunction {
 		Rscript makeCSV.R . .dat.dat metaphlan_table.csv
 		rm makeCSV.R parsed*
 		sed "s/\.\.\./ /g" metaphlan_table.csv > tmp
-		sed "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name/g" tmp > tmp2
+		sed "s/,parsed/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name,parsed/" tmp > tmp2
 		sed "s/\"//g" tmp2 > tmp3
 		awk 'BEGIN{FS=","}{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > tmp4
 		awk -F"," '{if(NR==1){print $0;next}for(i=1;i<7;i++){printf "%s,",$i};printf "%s,%s,",$8,$8; for(i=9;i<NF;i++){printf "%s,",$i}; printf "%s\n",$NF}' tmp4 > metaphlan_table.csv
@@ -411,32 +411,30 @@ function constrainsFunction {
 }
 function krakenFunction {
 
-	for kraken in `ls -1 *.kraken`
+	for kraken in $(ls -1 *.kraken)
 	do
 		#-1 for the root line
 		#NF contain numbers
 		#$1 reads number
-		totallines=`wc -l $kraken |awk '{print $1-1}'`
-		awk -F "d__|p__|c__|o__|f__|g__|s__" -v total=$totallines '{if(NR<total){print $NF, $1}}' $kraken > parsed_$kraken.dat
+		totallines=$(wc -l $kraken |awk '{print $1-1}')
+		awk -F "d__|p__|c__|o__|f__|g__|s__" -v total=$totallines '{if(NR<total){print $NF, $1}}' $kraken |awk '{print $1, $2}' |awk '{gsub("_"," ");if(NF==3)print}' > parsed_$kraken.dat
 		rm -f tmp
 		while read line
 		do
-			genus=`echo "$line" |awk 'BEGIN{FS="_"}{print $1}'`
-			species=`echo "$line" |awk 'BEGIN{FS="_| "}{print $2}'`
+			genus=$(echo "$line" |awk '{print $1}')
+			species=$(echo "$line" |awk '{print $2}')
 			#KRAKEN DOESN'T NEED ADJUST ABUNDANCE
-			reads=`echo "$line" |awk '{print $2}'`
+			reads=$(echo "$line" |awk '{print $3}')
 		
 			lineage=""
 			echo "fetching $genus $species lineage"
 			while [ "$lineage" == "" ]
 			do
-				lineage=`curl -s "https://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{gsub("/","");gsub("\\[|\\]","");print $1, $2, $3, $4, $5}'`
+				lineage=$(curl -s "https://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{gsub("/","");gsub("\\[|\\]","");print $1, $2, $3, $4, $5}')
 			done
 
-			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}'`
+			cand=$(echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}')
 			if [ "$cand" == "YES" ]; then
-				genus=`echo "$line" |awk 'BEGIN{FS="_"}{print $2}'`
-				species=`echo "$line" |awk 'BEGIN{FS="_| "}{print $3}'`
 				echo "unknow,unknow,unknow,unknow,unknow,$genus $species,$genus...$species""_$reads" >> tmp
 			else
 				echo "$lineage $genus $species $genus...$species""_$reads" >> tmp
@@ -448,7 +446,7 @@ function krakenFunction {
 	done
 
 	#####################################################
-	total=`ls -1 *.kraken.dat |wc -l`
+	total=$(ls -1 *.kraken.dat |wc -l)
 	if [ $((total)) -le 1 ]; then
 		echo "need at least 2 files to make a table"
 	else
@@ -458,7 +456,7 @@ function krakenFunction {
 		Rscript makeCSV.R . .kraken.dat kraken_table.csv
 		rm parsed* makeCSV.R
 		sed "s/\.\.\./ /g" kraken_table.csv > tmp
-		sed "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name/g" tmp > tmp2
+		sed "s/,parsed/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name,parsed/" tmp > tmp2
 		sed "s/\"//g" tmp2 > tmp3
 		awk 'BEGIN{FS=","}{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > tmp4
 		awk -F"," '{if(NR==1){print $0;next}for(i=1;i<7;i++){printf "%s,",$i};printf "%s,%s,",$8,$8; for(i=9;i<NF;i++){printf "%s,",$i}; printf "%s\n",$NF}' tmp4 > kraken_table.csv
@@ -490,7 +488,7 @@ function taxatorFunction {
 		Rscript makeCSV.R . tax.dat taxator_table.csv
 		rm parsed* makeCSV.R
 		sed "s/ti\.//g" taxator_table.csv > tmp
-		rm taxator_table && mv tmp taxator_table.csv
+		rm -f taxator_table && mv tmp taxator_table.csv
 
 		TakeLineageFunction taxator_table.csv
 	fi
