@@ -291,7 +291,7 @@ function sigmaFunction {
 	#this function take the sigma results (gvector.txt file), and parse it to leave only the tax id (fetch ti by gi is necessary in this function)
 	#####################################################################################################################################################
 
-	for gvector in `ls -1 *gvector.txt`
+	for gvector in $(ls -1 *gvector.txt)
 	do
 		#to recognize if the files for post analysis are in reads number or percent (abundance required)
 		#mappedread=`awk '{if($1=="+"){print $4-2}}' $gvector`
@@ -299,27 +299,20 @@ function sigmaFunction {
 		awk '{if($1=="@"){print $2, $3}}' $gvector > index.dat
 		awk '{if($1=="*"){print $2, $3}}' $gvector > ids.dat
 
-		if [ "$ABUNDANCE" == "" ];then
-			awk '{if(NR==FNR){n[$1]=$2}else{if($1 in n){print $2, n[$1]}}}' ids.dat index.dat > sigmaids.dat
-		else
-			if [ "$READTYPE" == "PAIRED" ];then
-				awk -v abu=$ABUNDANCE '{if(NR==FNR){n[$1]=$2}else{if($1 in n){print $2, n[$1]*abu*2/100}}}' ids.dat index.dat > sigmaids.dat
-			else
-				awk -v abu=$ABUNDANCE '{if(NR==FNR){n[$1]=$2}else{if($1 in n){print $2, n[$1]*abu/100}}}' ids.dat index.dat > sigmaids.dat
-			fi
-		fi
+		awk '{if(NR==FNR){n[$1]=$2}else{if($1 in n){print $2, n[$1]}}}' ids.dat index.dat > sigmaids.dat
+
 		cp sigmaids.dat tmp.dat
 		#####trade gi x ti#########
-		for gi in `awk '{print $1}' tmp.dat`	
+		for gi in $(awk '{print $1}' tmp.dat)
 		do
 			ti=""
 			while [ "$ti" == "" ]
 			do
-				ti=`curl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=nuccore&db=taxonomy&id=$gi" |grep "<Id>"|tail -n1 |awk '{print $1}' |cut -d '>' -f 2 |cut -d '<' -f 1`
+				ti=$(curl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=nuccore&db=taxonomy&id=$gi" |grep "<Id>"|tail -n1 |awk '{print $1}' |cut -d '>' -f 2 |cut -d '<' -f 1)
 				#echo "ti: $ti"
 			done
 			if [ "$ti" == "$gi" ];then
-				ti=`curl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=$gi" |head -n20 |grep "id" |awk '{print $2}'`
+				ti=$(curl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=$gi" |head -n20 |grep "id" |awk '{print $2}')
 			else
 				echo "$ti $abu" >> realdata.dat
 			fi
@@ -336,7 +329,7 @@ function sigmaFunction {
 	done
 	###########################################################
 	##############FETCHING TI BY GI############################
-	total=`ls -1 *.gvector.txt.dat |wc -l`
+	total=$(ls -1 *.gvector.txt.dat |wc -l)
 	if [ $((total)) -le 1 ]; then
 		echo "need at least 2 files to make a table"
 	else
@@ -346,7 +339,7 @@ function sigmaFunction {
 		Rscript makeCSV.R . gvector.txt.dat sigma_table.csv
 		rm parsed* makeCSV.R
 		sed "s/ti.//g" sigma_table.csv > tmp
-		rm sigma_table && mv tmo sigma_table
+		rm sigma_table.csv && mv tmp sigma_table.csv
 		TakeLineageFunction sigma_table.csv
 	fi	
 }
