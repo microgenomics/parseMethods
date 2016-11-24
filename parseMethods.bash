@@ -251,14 +251,14 @@ function metamixFunction {
 	#this function take the metamix results (tsv file), and parse it to leave only the tax id and number of mapped reads (% mapped reads if you specify an abundance in config file)
 	###################################################################################################################################################################################
 
-	for tsvfile in `ls -1 metamix*.tsv`
+	for tsvfile in $(ls -1 metamix*.tsv)
 	do
 		awk 'BEGIN{FS="\""}{if(NR>1)print $4}' $tsvfile > taxidasigned
 				
 		awk 'BEGIN{FS="\""}{if(NR>1)print $7}' $tsvfile |awk '{print $1}' > readsasigned
 
 		paste -d " " taxidasigned readsasigned > metamixids.dat
-		delete=`grep "unknown" -n metamixids.dat |awk -F ":" '{print $1}'`
+		delete=$(grep "unknown" -n metamixids.dat |awk -F ":" '{print $1}')
 
 		if [ "$delete" != "" ]; then
 			sed "${delete}d" metamixids.dat > tmp
@@ -268,11 +268,11 @@ function metamixFunction {
 
 		rm taxidasigned readsasigned
 
-		tsvfile=`echo "$tsvfile" |sed "s/,/./g"`
+		tsvfile=$(echo "$tsvfile" |sed "s/,/./g")
 		mv metamixids.dat parsed_$tsvfile.dat
 	done		   
 
-	total=`ls -1 *.tsv.dat |wc -l`
+	total=$(ls -1 *.tsv.dat |wc -l)
 	if [ $((total)) -le 1 ]; then
 		echo "need at least 2 files to make a table"
 	else
@@ -282,7 +282,7 @@ function metamixFunction {
 		Rscript makeCSV.R . tsv.dat metamix_table.csv
 		rm parsed* makeCSV.R
 		sed "s/ti.//g" metamix_table.csv > tmp
-		rm metamix_table.csv && mv tmp metamix_table
+		rm metamix_table.csv && mv tmp metamix_table.csv
 		TakeLineageFunction metamix_table.csv
 	fi
 }
