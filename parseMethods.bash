@@ -57,24 +57,24 @@ do
 	*)
 		if [ $((workband)) -eq 1 ];then
 			RUTAINICIAL=$i
-			EXECUTIONPATH=`pwd`
+			EXECUTIONPATH=$(pwd)
 			statusband=$((statusband+1))
 			workband=0
 		fi
 		
 		if [ $((cfileband)) -eq 1 ];then
-			for parameter in `awk '{print}' $i`
+			for parameter in $(awk '{print}' $i)
 			do
-				Pname=`echo "$parameter" |awk 'BEGIN{FS="="}{print $1}'`		
+				Pname=$(echo "$parameter" |awk 'BEGIN{FS="="}{print $1}')	
 				case $Pname in
 					"READSIZE")
-						READSIZE=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
+						READSIZE=$(echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g")			
 					;;
 					"READTYPE")
-						READTYPE=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
+						READTYPE=$(echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g")					
 					;;
 					"METHOD")
-						METHOD=`echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g"`					
+						METHOD=$(echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g")				
 					;;
 			
 				esac
