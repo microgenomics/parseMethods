@@ -23,10 +23,7 @@ fi
 workband=0
 cfileband=0
 statusband=0
-titogiband=0
-tifamilyband=0
-abundanceband=0
-ABUNDANCE=""
+deepsband=0
 
 for i in "$@"
 do
@@ -37,14 +34,15 @@ do
 	"--cfile")
 		cfileband=1
 	;;
-	"--abundance")
-		abundanceband=1		
+	"--deeps")
+		deepsband=1
 	;;
 	"--help")
 		echo "Usage: bash parseMethods.bash --workpath . --cfile config"
 		echo "Options aviable:"
 		echo "--workpath path where your files are"
 		echo "--cfile configuration file"
+		echo "--deeps to convert the % of sigma, metaphlan2 and constrains results into raw abundance reads"
 		echo -e "\n Notes:"
 		echo "* Make sure you have R (with gtools and xlsx)"
 		echo "* don't use ',' to name your files, this script will generate a csv and ',' may cause problems"
@@ -62,16 +60,16 @@ do
 		if [ $((cfileband)) -eq 1 ];then
 			for parameter in $(awk '{print}' $i)
 			do
-				Pname=$(echo "$parameter" |awk 'BEGIN{FS="="}{print $1}')	
+				Pname=$(echo "$parameter" |awk -F"=" '{print $1}')	
 				case $Pname in
 					"READSIZE")
-						READSIZE=$(echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g")			
+						READSIZE=$(echo "$parameter" | awk -F"=" '{print $2}' | sed "s/,/ /g")			
 					;;
 					"READTYPE")
-						READTYPE=$(echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g")					
+						READTYPE=$(echo "$parameter" | awk -F"=" '{print $2}')					
 					;;
 					"METHOD")
-						METHOD=$(echo "$parameter" | awk 'BEGIN{FS="="}{print $2}' | sed "s/,/ /g")				
+						METHOD=$(echo "$parameter" | awk -F"=" '{print $2}' | sed "s/,/ /g")				
 					;;
 			
 				esac
@@ -79,18 +77,20 @@ do
 			statusband=$((statusband+1))
 			cfileband=0
 		fi
-		
-		if [ $((abundanceband)) -eq 1 ]; then
-			abundanceband=0
+
+		if [ $((deepsband)) -eq 1 ];then
+			deepsband=0
 			re='^[0-9]+$'
 			if ! [[ $i =~ $re ]] ; then
-			   echo "error: abundance is not a number" >&2; 
+			   echo "error: deep sequence is not a number" 
 			   exit
 			fi
+
 			if [ "$i" != "0" ]; then
-				ABUNDANCE=$i
+				DEEPS=$i
+				statusband=$((statusband+1))
 			else
-				echo "$i is an invalid abundance"
+				echo "$i is an invalid deep sequence (int)"
 				exit
 			fi
 		fi
@@ -125,13 +125,13 @@ function TakeLineageFunction {
 	if [ -f $Matrix ]; then
 		#print the headers for the csv
 		echo 'Kingdom,Phylum,Class,Order,Family,Genus,Species,Name,' >> TaxonomyPredictionMatrix.csv 
-		for ti in $(awk 'BEGIN{FS=","}{if(NR>1){print $1}}' $Matrix)
+		for ti in $(awk -F"," '{if(NR>1){gsub("ti\.","");print $1}}' $Matrix)
 		do
 			echo "fetching lineage from ti: $ti"
 			 #warning, no error tolerance (I never get the error for cover the case)
 			 #fetch the ti by ncbi api
 			nofetch=""
-			while [ "$nofetch" == "" ] || [[ "$nofetch" =~ "Connection refused" ]]
+			while [ "$nofetch" == "" ] || [[ "$nofetch" =~ "Connection refused" ]] || [[ "$nofetch" =~ "Bad Gateway!" ]]
 			do
 				if curl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id=$ti" > tmp.xml ;then
 					nofetch=$(cat tmp.xml)
@@ -178,11 +178,11 @@ function pathoscopeFunction {
 
 	for tsvfile in $(ls -1 pathoscope*.tsv)
 	do
-		awk 'BEGIN{FS="|"}{print $2}' $tsvfile |awk '{if(NR>2)print $1, $4}' > pathoids.dat
+		awk 'BEGIN{FS="|"}{print $2}' $tsvfile |awk '{if(NR>2)print $1, $4/2}' > pathoids.dat
 		tsvfile=$(echo "$tsvfile" |sed "s/,/./g")
 		mv pathoids.dat parsed_$tsvfile.dat
 		echo "$tsvfile file formated"
-	done	
+	done
 		total=$(ls -1 *.tsv.dat |wc -l)
 	if [ $((total)) -le 1 ]; then
 		echo "need at least 2 files to make a table"
@@ -192,8 +192,6 @@ function pathoscopeFunction {
 		makeCSV > makeCSV.R
 		Rscript makeCSV.R . tsv.dat pathoscope_table.csv
 		rm parsed* makeCSV.R
-		sed "s/ti.//g" pathoscope_table.csv > tmp
-		rm -f pathoscope_table && mv tmp pathoscope_table.csv
 
 		TakeLineageFunction pathoscope_table.csv
 
@@ -204,17 +202,14 @@ function metaphlanFunction {
 	for datfile in $(ls -1 metaphlan*.dat)
 	do
 			#if to recognize if the files for post analysis are in reads number or percent (abundance required)
-			if [ "$ABUNDANCE" == "" ]; then
-				sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print $2}' | sed '1!G;h;$!d' > quantities
-			else
-				if [ "$READTYPE" == "PAIRED" ]; then
-					sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print (($2*abu)*2)/100}' | sed '1!G;h;$!d' > quantities
-				else
-					sed '1!G;h;$!d' $datfile |awk -v abu=$ABUNDANCE 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print ($2*abu)/100}' | sed '1!G;h;$!d' > quantities
-				fi
-			fi
 
-			sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $3, $6, $9, $12, $15, $18, $22, $18"..."$22}' > sname
+			#if [ "$READTYPE" == "PAIRED" ]; then
+			#	sed '1!G;h;$!d' $datfile |awk -v abu=$DEEPS 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print (($2*abu)*2)/100}' | sed '1!G;h;$!d' > quantities
+			#else
+				sed '1!G;h;$!d' $datfile |awk -v abu=$DEEPS 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print ($2*abu)/100}' | sed '1!G;h;$!d' > quantities
+			#fi
+
+			sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk -F"|" '{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $3, $6, $9, $12, $15, $18, $22, $18"..."$22}' > sname
 			#sed '1!G;h;$!d' $datfile |awk 'BEGIN{sum=0}{sum+=$2;if(sum<=100)print}' | sed '1!G;h;$!d' |awk '{print $1}' |awk 'BEGIN{FS="|"}{print $1, $2, $3, $4, $5, $6, $7}' |awk 'BEGIN{FS="_| "}{print $22}' > sname
 			paste -d '_' sname quantities > metaphlanid.dat
 			rm sname quantities
@@ -252,7 +247,7 @@ function metamixFunction {
 	do
 		awk 'BEGIN{FS="\""}{if(NR>1)print $4}' $tsvfile > taxidasigned
 				
-		awk 'BEGIN{FS="\""}{if(NR>1)print $7}' $tsvfile |awk '{print $1}' > readsasigned
+		awk 'BEGIN{FS="\""}{if(NR>1)print $7/2}' $tsvfile |awk '{print $1}' > readsasigned
 
 		paste -d " " taxidasigned readsasigned > metamixids.dat
 		delete=$(grep "unknown" -n metamixids.dat |awk -F ":" '{print $1}')
@@ -285,7 +280,8 @@ function metamixFunction {
 }
 function sigmaFunction {
 	#####################################################################################################################################################
-	#this function take the sigma results (gvector.txt file), and parse it to leave only the tax id (fetch ti by gi is necessary in this function)
+	# This function take the sigma results (gvector.txt file), and parse it to leave only the tax id (fetch ti by gi is necessary in this function)
+	# SIGMA NEEDS THE DEEPS TO CONVERT % INTO RAW DATA, PROVIDE IT BY --SigmaDeepSeq
 	#####################################################################################################################################################
 
 	for gvector in $(ls -1 *gvector.txt)
@@ -300,8 +296,11 @@ function sigmaFunction {
 
 		cp sigmaids.dat tmp.dat
 		#####trade gi x ti#########
-		for gi in $(awk '{print $1}' tmp.dat)
+		cat tmp.dat |while read line
 		do
+			gi=$(echo $line |awk '{print $1}')
+			abu=$(echo $line |awk -v deep=$DEEPS '{print $2*deep/100}')	
+
 			ti=""
 			while [ "$ti" == "" ]
 			do
@@ -309,16 +308,13 @@ function sigmaFunction {
 				#echo "ti: $ti"
 			done
 			if [ "$ti" == "$gi" ];then
-				ti=$(curl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=$gi" |head -n20 |grep "id" |awk '{print $2}')
-			else
-				echo "$ti $abu" >> realdata.dat
+				ti=$(curl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=$gi" |head -n20 |grep "id" |awk '{print $2}' |head -n 1)				
 			fi
-			sed "s/[[:<:]]$gi[[:>:]]/$ti/g" sigmaids.dat > tmp
-			rm sigmaids.dat
-			mv tmp sigmaids.dat
+		
+			echo "$ti $abu"
+		
+		done > sigmaids.dat
 
-		done
-					
 		echo "$gvector file formated"
 		rm tmp.dat index.dat ids.dat
 		mv sigmaids.dat parsed_$gvector.dat
@@ -342,39 +338,39 @@ function sigmaFunction {
 }
 function constrainsFunction {
 	
-	for profile in `ls -1 *.profiles`
+	for profile in $(ls -1 *.profiles)
 	do
 		awk '{if(NR>1){print $1, $4}}' $profile > parsed_$profile.dat
 		rm -f tmp
 		while read line
 		do
-			genus=`echo "$line" |awk 'BEGIN{FS="_"}{print $1}'`
-			species=`echo "$line" |awk 'BEGIN{FS="_| "}{print $2}'`
+			genus=$(echo "$line" |awk 'BEGIN{FS="_"}{print $1}')
+			species=$(echo "$line" |awk 'BEGIN{FS="_| "}{print $2}')
 		
-			if [ "$ABUNDANCE" == "" ]; then			
-				reads=`echo "$line" |awk '{print $2}'`
-			else
-				if [ "$READTYPE" == "PAIRED" ]; then			
-					reads=`echo "$line" |awk -v abu=$ABUNDANCE '{print ($2*abu*2)/100}'`
-				else
-					reads=`echo "$line" |awk -v abu=$ABUNDANCE '{print ($2*abu)/100}'`
-				fi
-			fi
+			#if [ "$DEEPS" == "" ]; then			
+			#	reads=$(echo "$line" |awk '{print $2}')
+			#else
+			#	if [ "$READTYPE" == "PAIRED" ]; then			
+			#		reads=$(echo "$line" |awk -v abu=$DEEPS '{print ($2*abu*2)/100}')
+			#	else
+					reads=$(echo "$line" |awk -v abu=$DEEPS '{print ($2*abu)/100}')
+			#	fi
+			#fi
 		
 			lineage=""
 			echo "fetching $genus $species lineage"
 			while [ "$lineage" == "" ]
 			do
-				lineage=`curl -s "https://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{gsub("/","");print $1, $2, $3, $4, $5}'`
+				lineage=$(curl -s "https://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($0~"<lineage>"){band=1;next}if($0~"</lineage>"){band=0};if(band==1){gsub("="," ");print}}' |awk '{toprint="";for(i=1;i<=NF;i++){if($i=="scientificName"){toprint=$(i+1)};if($i=="rank"){toprint=toprint" "$(i+1)}}print toprint}' |tail -r |awk '{gsub("\"","");if($1!="" && $2!=""){if(toprint==""){toprint=$1}else{toprint=toprint" "$1}}}END{print toprint}' |awk '{gsub("/","");print $1, $2, $3, $4, $5}')
 			done
 
-			cand=`echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}'`
+			cand=$(echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}')
 			if [ "$cand" == "YES" ]; then
-				echo "unknow,unknow,unknow,unknow,unknow,unknow,$genus $species,$genus...$species""_$reads" >> tmp
+				echo "unknow,unknow,unknow,unknow,unknow,unknow,$genus $species,$genus...$species""_$reads" 
 			else
-				echo "$lineage $genus $species $genus...$species""_$reads" >> tmp
+				echo "$lineage $genus $species $genus...$species""_$reads"
 			fi
-		done < <(grep "" parsed_$profile.dat)
+		done < <(grep "" parsed_$profile.dat) > tmp
 		rm parsed_$profile.dat
 		mv tmp parsed_$profile.dat
 
@@ -382,7 +378,7 @@ function constrainsFunction {
 	done
 	###########################################################
 	##############FETCHING TI BY GI############################
-	total=`ls -1 parsed_*.profiles.dat|wc -l`
+	total=$(ls -1 parsed_*.profiles.dat|wc -l)
 	if [ $((total)) -le 1 ]; then
 		echo "need at least 2 files to make a table"
 	else
@@ -413,7 +409,7 @@ function krakenFunction {
 		do
 			genus=$(echo "$line" |awk '{print $1}')
 			species=$(echo "$line" |awk '{print $2}')
-			#KRAKEN DOESN'T NEED ADJUST ABUNDANCE
+			#KRAKEN DOESN'T NEED ADJUST DEEPS
 			reads=$(echo "$line" |awk '{print $3}')
 		
 			lineage=""
@@ -425,11 +421,11 @@ function krakenFunction {
 
 			cand=$(echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}')
 			if [ "$cand" == "YES" ]; then
-				echo "unknow,unknow,unknow,unknow,unknow,$genus $species,$genus...$species""_$reads" >> tmp
+				echo "unknow,unknow,unknow,unknow,unknow,$genus $species,$genus...$species""_$reads"
 			else
-				echo "$lineage $genus $species $genus...$species""_$reads" >> tmp
+				echo "$lineage $genus $species $genus...$species""_$reads"
 			fi
-		done < <(grep "" parsed_$kraken.dat)
+		done < <(grep "" parsed_$kraken.dat) > tmp
 		rm parsed_$kraken.dat
 		mv tmp parsed_$kraken.dat
 		echo "$kraken file formated"
@@ -461,14 +457,14 @@ function taxatorFunction {
 	#this function take the taxator results (tax file), and parse it to leave only the tax id and number of mapped reads (% mapped reads if you specify an abundance in config file)
 	###################################################################################################################################################################################
 
-	for taxfile in `ls -1 taxator*.tax`
+	for taxfile in $(ls -1 taxator*.tax)
 	do
-		grep -v "#" $taxfile |grep -v "@" |awk '{if($1!="")print $2}' |sort |uniq -c |sort -nr |awk '{print $2, $1}' > taxid.dat
-		tsvfile=`echo "$tsvfile" |sed "s/,/./g"`
+		grep -v "#" $taxfile |grep -v "@" |awk '{if($1!="")print $2}' |sort |uniq -c |sort -nr |awk '{print $2, $1/2}' > taxid.dat
+		tsvfile=$(echo "$tsvfile" |sed "s/,/./g")
 		mv taxid.dat parsed_$taxfile.dat
 		echo "$taxfile file formated"
 	done	
-		total=`ls -1 parsed_*.tax.dat |wc -l`
+		total=$(ls -1 parsed_*.tax.dat |wc -l)
 	if [ $((total)) -le 1 ]; then
 		echo "need at least 2 files to make a table"
 	else
@@ -487,7 +483,7 @@ function centrifugeFunction {
 
 	for tsvfile in $(ls -1 centrifuge*.tsv)
 	do
-		awk -F"\t" '{if(NR>1)print $2"\t"$5}' $tsvfile > centrifugeid.dat
+		awk -F"\t" '{if(NR>1)print $2, $5}' $tsvfile > centrifugeid.dat
 		mv centrifugeid.dat parsed_$tsvfile.cf
 		echo "$tsvfile file formated"
 	done	
@@ -611,6 +607,13 @@ function makeCSV {
 
 ################################################################################################################
 #begin the code
+if [[ "$METHOD" =~ "METAPHLAN" ]] || [[ "$METHOD" =~ "CONSTRAINS" ]] || [[ "$METHOD" =~ "SIGMA" ]]; then
+	if [ "$DEEPS" == "" ]; then
+		echo "Metaphlan2, Constrains and Sigma needs Deep sequence as parameter, use --deeps (see help)"
+		exit
+	fi
+fi
+
 if [ $((statusband)) -ge 2 ]; then
 	cd ${RUTAINICIAL}
 	for g in $METHOD
