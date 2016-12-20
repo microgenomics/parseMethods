@@ -134,10 +134,11 @@ function TakeLineageFunction {
 			while [ "$nofetch" == "" ] || [[ "$nofetch" =~ "Connection refused" ]] || [[ "$nofetch" =~ "Bad Gateway!" ]]
 			do
 				if curl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&id=$ti" > tmp.xml ;then
+					touch tmp.xml
 					nofetch=$(cat tmp.xml)
 				else
 					echo "curl error fetch, internet connection?"
-				fi	
+				fi
 			done
 			name=$(awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml) #be careful with \n
 			spctoawk=$(awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml |awk '{print $2}')
@@ -366,11 +367,11 @@ function constrainsFunction {
 
 			cand=$(echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}')
 			if [ "$cand" == "YES" ]; then
-				echo "unknow,unknow,unknow,unknow,unknow,unknow,$genus $species,$genus...$species""_$reads" 
+				echo "unknow,unknow,unknow,unknow,unknow,unknow,$genus $species,$genus...$species""_$reads" >> tmp
 			else
-				echo "$lineage $genus $species $genus...$species""_$reads"
+				echo "$lineage $genus $species $genus...$species""_$reads" >> tmp
 			fi
-		done < <(grep "" parsed_$profile.dat) > tmp
+		done < <(grep "" parsed_$profile.dat)
 		rm parsed_$profile.dat
 		mv tmp parsed_$profile.dat
 
@@ -390,7 +391,7 @@ function constrainsFunction {
 		sed "s/\.\.\./ /g" constrains_table.csv > tmp
 		sed "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name/g" tmp > tmp2
 		sed "s/\"//g" tmp2 > tmp3
-		awk 'BEGIN{FS=","}{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > tmp4
+		awk -F"," '{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > tmp4
 		awk -F"," '{if(NR==1){print $0;next}for(i=1;i<7;i++){printf "%s,",$i};printf "%s,%s,",$8,$8; for(i=9;i<NF;i++){printf "%s,",$i}; printf "%s\n",$NF}' tmp4 > constrains_table.csv
 		rm tmp*
 	fi
@@ -421,11 +422,11 @@ function krakenFunction {
 
 			cand=$(echo "$lineage" |awk '{if($0 ~ "Candidatus"){print "YES"}else{print "NO"}}')
 			if [ "$cand" == "YES" ]; then
-				echo "unknow,unknow,unknow,unknow,unknow,$genus $species,$genus...$species""_$reads"
+				echo "unknow,unknow,unknow,unknow,unknow,$genus $species,$genus...$species""_$reads" >> tmp
 			else
-				echo "$lineage $genus $species $genus...$species""_$reads"
+				echo "$lineage $genus $species $genus...$species""_$reads" >> tmp
 			fi
-		done < <(grep "" parsed_$kraken.dat) > tmp
+		done < <(grep "" parsed_$kraken.dat)
 		rm parsed_$kraken.dat
 		mv tmp parsed_$kraken.dat
 		echo "$kraken file formated"
@@ -483,7 +484,7 @@ function centrifugeFunction {
 
 	for tsvfile in $(ls -1 centrifuge*.tsv)
 	do
-		awk -F"\t" '{if(NR>1)print $2, $5}' $tsvfile > centrifugeid.dat
+		awk -F"\t" '{if(NR>1)print $1"_"$5}' $tsvfile |awk '{print $1, $2"_"$3}' > centrifugeid.dat
 		mv centrifugeid.dat parsed_$tsvfile.cf
 		echo "$tsvfile file formated"
 	done	
@@ -495,10 +496,52 @@ function centrifugeFunction {
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
 		makeCSV > makeCSV.R
-		Rscript makeCSV.R . tsv.cf centrifuge_table.csv
+		Rscript makeCSV.R . .tsv.cf centrifuge_table.csv
 		rm parsed*.cf makeCSV.R
 
-		TakeLineageFunction centrifuge_table.csv
+		#take lineage
+		echo 'Kingdom,Phylum,Class,Order,Family,Genus,Species,Name' > tmp.csv 
+		awk '{if(NR>1)print}' centrifuge_table.csv |while read line
+		do
+			genus=$(echo "$line" |awk -F"," '{print $1}' |awk -F"." '{print $1}')
+			species=$(echo "$line" |awk -F"," '{print $1}' |awk -F"." '{print $2}')
+
+			nofetch=""
+			while [ "$nofetch" == "" ] || [[ "$nofetch" =~ "Connection refused" ]] || [[ "$nofetch" =~ "Bad Gateway!" ]]
+			do
+				if curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$species%20$genus&display=xml" |awk 'BEGIN{band=0}{if($1=="<lineage>"){band=1;next}if(band==1){print}if($1=="</lineage>"){exit}}' > tmplin ;then
+					touch tmplin
+					nofetch=$(cat tmp.xml)
+				else
+					echo "curl error fetch, internet connection?"
+				fi
+			done
+
+			family=$(grep "rank=\"family\"" tmplin |awk '{print $2}' |awk -F"=" '{gsub("\"","");print $2}')
+			if [ "$family" == "" ];then 
+				family="unknow"
+			fi
+			order=$(grep "rank=\"order\"" tmplin |awk '{print $2}' |awk -F"=" '{gsub("\"","");print $2}')
+			if [ "$order" == "" ];then 
+				order="unknow"
+			fi
+			class=$(grep "rank=\"class\"" tmplin |awk '{print $2}' |awk -F"=" '{gsub("\"","");print $2}')
+			if [ "$class" == "" ];then 
+				class="unknow"
+			fi
+			phylum=$(grep "rank=\"phylum\"" tmplin |awk '{print $2}' |awk -F"=" '{gsub("\"","");print $2}')
+			if [ "$phylum" == "" ];then 
+				phylum="unknow"
+			fi
+			superk=$(grep "rank=\"superkingdom\"" tmplin |awk '{print $2}' |awk -F"=" '{gsub("\"","");print $2}')
+			if [ "$superk" == "" ];then 
+				superk="unknow"
+			fi
+			echo "$superk,$phylum,$class,$order,$family,$genus,$species,$genus $species"  >> tmp.csv
+		done
+		awk -F"," '{$1="";gsub(" ",",");print $0}' centrifuge_table.csv > tmpvalues.csv
+		paste -d '\0' tmp.csv tmpvalues.csv > centrifuge_table.csv
+		rm -f tmplin tmp.csv tmpvalues.csv
 
 	fi	
 }
@@ -526,13 +569,13 @@ function makeCSV {
 	
 	for( i in 1:length(list_of_files)){
 	#  patient_names[i]<-substring(list_of_files[i], 1, 6)
-	  patient_names[i]<-substr(list_of_files[i],1,nchar(list_of_files[i])-4)
+	  patient_names[i]<-substr(list_of_files[i],1,nchar(list_of_files[i])-(nchar(pattr)))
 	}
 	
 	# read in each table
 	
 	#read_counts <- lapply(list_of_files, read.table, sep="\t", header = FALSE, skip =2)
-	if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat" ){
+	if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat" || pattr == ".tsv.cf"){
 		read_counts <- lapply(list_of_files, read.table, sep="_", header = FALSE)
 	}else{
 		read_counts <- lapply(list_of_files, read.table, sep=" ", header = FALSE)
@@ -543,7 +586,7 @@ function makeCSV {
 	
 	# for each table make the first col name OTU and the second the patient name
 	
-	if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat"){
+	if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat" || pattr == ".tsv.cf"){
 		for( i in 1:length(list_of_files)){
 	  		colnames(read_counts[[i]])<- c(patient_names[i])
 	  		#print(read_counts[i])
@@ -557,7 +600,7 @@ function makeCSV {
 	# list of lists called otu which stores the first column otu names for each dataframe
 	otu<-NULL
 	
-	if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat"){
+	if(pattr == ".dat.dat" || pattr == ".profiles.dat" || pattr == ".kraken.dat" || pattr == ".tsv.cf"){
 		for( i in 1:length(list_of_files)){
 			name<-paste(as.character(read_counts[[i]][,1]))
 		  	otu[i]<- list(name)
