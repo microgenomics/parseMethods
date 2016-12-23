@@ -485,7 +485,7 @@ function centrifugeFunction {
 
 	for tsvfile in $(ls -1 centrifuge*.tsv)
 	do
-		awk -F"\t" '{if(NR>1)print $1"_"$5}' $tsvfile |awk '{print $1, $2"_"$3/2}' > centrifugeid.dat
+		awk -F"\t" '{if(NR>1)print $1"_"$5}' $tsvfile |awk '{if($2!="")print $1, $2"_"$3/2}' > centrifugeid.dat
 		mv centrifugeid.dat parsed_$tsvfile.cf
 		echo "$tsvfile file formated"
 	done	
@@ -506,6 +506,11 @@ function centrifugeFunction {
 		do
 			genus=$(echo "$line" |awk -F"," '{print $1}' |awk -F"." '{print $1}')
 			species=$(echo "$line" |awk -F"," '{print $1}' |awk -F"." '{print $2}')
+
+			if [ "$species" == "" ];then
+				echo "* no species was detected, aborting, check centrifuge table, genus: $genus, species: $species"
+				exit
+			fi
 
 			nofetch=""
 			while [ "$nofetch" == "" ] || [[ "$nofetch" =~ "Connection refused" ]] || [[ "$nofetch" =~ "Bad Gateway!" ]]
