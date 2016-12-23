@@ -510,7 +510,7 @@ function centrifugeFunction {
 			nofetch=""
 			while [ "$nofetch" == "" ] || [[ "$nofetch" =~ "Connection refused" ]] || [[ "$nofetch" =~ "Bad Gateway!" ]]
 			do
-				if curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$species%20$genus&display=xml" |awk 'BEGIN{band=0}{if($1=="<lineage>"){band=1;next}if(band==1){print}if($1=="</lineage>"){exit}}' > tmplin ;then
+				if curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($1=="<lineage>"){band=1;next}if(band==1){print}if($1=="</lineage>"){exit}}' > tmplin ;then
 					touch tmplin
 					nofetch=$(cat tmplin)
 				else
