@@ -138,6 +138,7 @@ function TakeLineageFunction {
 					nofetch=$(cat tmp.xml)
 				else
 					echo "curl error fetch, internet connection?"
+					nofetch=""
 				fi
 			done
 			name=$(awk 'BEGIN{FS="[<|>]"}{if($2=="ScientificName"){printf "%s\n", $3;exit}}' tmp.xml) #be careful with \n
@@ -484,7 +485,7 @@ function centrifugeFunction {
 
 	for tsvfile in $(ls -1 centrifuge*.tsv)
 	do
-		awk -F"\t" '{if(NR>1)print $1"_"$5}' $tsvfile |awk '{print $1, $2"_"$3}' > centrifugeid.dat
+		awk -F"\t" '{if(NR>1)print $1"_"$5}' $tsvfile |awk '{print $1, $2"_"$3/2}' > centrifugeid.dat
 		mv centrifugeid.dat parsed_$tsvfile.cf
 		echo "$tsvfile file formated"
 	done	
@@ -511,9 +512,10 @@ function centrifugeFunction {
 			do
 				if curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$species%20$genus&display=xml" |awk 'BEGIN{band=0}{if($1=="<lineage>"){band=1;next}if(band==1){print}if($1=="</lineage>"){exit}}' > tmplin ;then
 					touch tmplin
-					nofetch=$(cat tmp.xml)
+					nofetch=$(cat tmplin)
 				else
 					echo "curl error fetch, internet connection?"
+					nofetch=""
 				fi
 			done
 
