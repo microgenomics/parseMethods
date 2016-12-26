@@ -485,7 +485,7 @@ function centrifugeFunction {
 
 	for tsvfile in $(ls -1 centrifuge*.tsv)
 	do
-		awk -F"\t" '{if(NR>1)print $1"_"$5}' $tsvfile |awk '{if($2!="")print $1, $2"_"$3/2}' > centrifugeid.dat
+		awk -F"\t" '{if(NR>1 && $3=="species")print $1"_"$5/2}' $tsvfile > centrifugeid.dat
 		mv centrifugeid.dat parsed_$tsvfile.cf
 		echo "$tsvfile file formated"
 	done	
@@ -519,8 +519,9 @@ function centrifugeFunction {
 					touch tmplin
 					nofetch=$(cat tmplin)
 				else
-					echo "curl error fetch, internet connection?"
+					echo "curl error fetch, internet connection?, retrying after 10 seconds"
 					nofetch=""
+					wait 10
 				fi
 			done
 
