@@ -389,11 +389,9 @@ function constrainsFunction {
 		makeCSV > makeCSV.R
 		Rscript makeCSV.R . .profiles.dat constrains_table.csv
 		rm makeCSV.R parsed*
+
 		sed "s/\.\.\./ /g" constrains_table.csv > tmp
-		sed "s/\"\"/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name/g" tmp > tmp2
-		sed "s/\"//g" tmp2 > tmp3
-		awk -F"," '{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > tmp4
-		awk -F"," '{if(NR==1){print $0;next}for(i=1;i<7;i++){printf "%s,",$i};printf "%s,%s,",$8,$8; for(i=9;i<NF;i++){printf "%s,",$i}; printf "%s\n",$NF}' tmp4 > constrains_table.csv
+		awk '{FS=",";if(NR==1){printf "Kingdom,Phylum,Class,Order,Family,Genus,Species,Name%s\n",$0;FS=" "}else{FS=",";gsub("\\.",",",$1);FS=" ";print $0}}' tmp > constrains_table.csv
 		rm tmp*
 	fi
 }
