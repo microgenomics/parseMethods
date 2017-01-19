@@ -34,9 +34,6 @@ do
 	"--cfile")
 		cfileband=1
 	;;
-	"--deeps")
-		deepsband=1
-	;;
 	"--help")
 		echo "Usage: bash parseMethods.bash --workpath . --cfile config"
 		echo "Options aviable:"
@@ -62,11 +59,8 @@ do
 			do
 				Pname=$(echo "$parameter" |awk -F"=" '{print $1}')	
 				case $Pname in
-					"READSIZE")
-						READSIZE=$(echo "$parameter" | awk -F"=" '{print $2}' | sed "s/,/ /g")			
-					;;
-					"READTYPE")
-						READTYPE=$(echo "$parameter" | awk -F"=" '{print $2}')					
+					"DEPTH")
+						DEEPS=$(echo "$parameter" | awk -F"=" '{print $2}')					
 					;;
 					"METHOD")
 						METHOD=$(echo "$parameter" | awk -F"=" '{print $2}' | sed "s/,/ /g")				
@@ -78,22 +72,6 @@ do
 			cfileband=0
 		fi
 
-		if [ $((deepsband)) -eq 1 ];then
-			deepsband=0
-			re='^[0-9]+$'
-			if ! [[ $i =~ $re ]] ; then
-			   echo "error: deep sequence is not a number" 
-			   exit
-			fi
-
-			if [ "$i" != "0" ]; then
-				DEEPS=$i
-				statusband=$((statusband+1))
-			else
-				echo "$i is an invalid deep sequence (int)"
-				exit
-			fi
-		fi
 	;;
 	esac
 done
@@ -187,7 +165,15 @@ function pathoscopeFunction {
 	done
 		total=$(ls -1 *.tsv.dat |wc -l)
 	if [ $((total)) -le 1 ]; then
-		echo "need at least 2 files to make a table"
+		#echo "need at least 2 files to make a table"
+		cp parsed_$tsvfile.dat parsed__$tsvfile.dat
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . tsv.dat pathoscope_table.csv
+		rm parsed* makeCSV.R
+
+		TakeLineageFunction pathoscope_table.csv
+		awk -F"," '{$(NF-1)=$NF;$NF="";for(i=1;i<(NF-1);i++){printf "%s,",$i}printf "%s\n",$(NF-1)}' pathoscope_table.csv > tmp && mv tmp pathoscope_table.csv
+
 	else
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
@@ -224,7 +210,21 @@ function metaphlanFunction {
 
 	total=$(ls -1 *.dat.dat |wc -l)
 	if [ $((total)) -le 1 ]; then
-		echo "need at least 2 files to make a table"
+		#echo "need at least 2 files to make a table"
+		cp parsed_$datfile.dat parsed__$datfile.dat
+
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . .dat.dat metaphlan_table.csv
+		rm makeCSV.R parsed*
+		sed "s/\.\.\./ /g" metaphlan_table.csv > tmp
+		sed "s/,parsed/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name,parsed/" tmp > tmp2
+		sed "s/\"//g" tmp2 > tmp3
+		awk 'BEGIN{FS=","}{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > tmp4
+		awk -F"," '{if(NR==1){print $0;next}for(i=1;i<7;i++){printf "%s,",$i};printf "%s,%s,",$8,$8; for(i=9;i<NF;i++){printf "%s,",$i}; printf "%s\n",$NF}' tmp4 > metaphlan_table.csv
+
+		rm tmp*
+		awk -F"," '{$(NF-1)=$NF;$NF="";for(i=1;i<(NF-1);i++){printf "%s,",$i}printf "%s\n",$(NF-1)}' metaphlan_table.csv > tmp && mv tmp metaphlan_table.csv
+
 	else
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
@@ -268,7 +268,17 @@ function metamixFunction {
 
 	total=$(ls -1 *.tsv.dat |wc -l)
 	if [ $((total)) -le 1 ]; then
-		echo "need at least 2 files to make a table"
+		#echo "need at least 2 files to make a table"
+		cp parsed_$tsvfile.dat parsed__$tsvfile.dat
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . tsv.dat metamix_table.csv
+		rm parsed* makeCSV.R
+		sed "s/ti.//g" metamix_table.csv > tmp
+		rm metamix_table.csv && mv tmp metamix_table.csv
+		TakeLineageFunction metamix_table.csv
+		awk -F"," '{$(NF-1)=$NF;$NF="";for(i=1;i<(NF-1);i++){printf "%s,",$i}printf "%s\n",$(NF-1)}' metamix_table.csv > tmp && mv tmp metamix_table.csv
+
+
 	else
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
@@ -326,7 +336,16 @@ function sigmaFunction {
 	##############FETCHING TI BY GI############################
 	total=$(ls -1 *.gvector.txt.dat |wc -l)
 	if [ $((total)) -le 1 ]; then
-		echo "need at least 2 files to make a table"
+		#echo "need at least 2 files to make a table"
+		cp parsed_$gvector.dat parsed__$gvector.dat
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . gvector.txt.dat sigma_table.csv
+		rm parsed* makeCSV.R
+		sed "s/ti.//g" sigma_table.csv > tmp
+		rm sigma_table.csv && mv tmp sigma_table.csv
+		TakeLineageFunction sigma_table.csv
+		awk -F"," '{$(NF-1)=$NF;$NF="";for(i=1;i<(NF-1);i++){printf "%s,",$i}printf "%s\n",$(NF-1)}' sigma_table.csv > tmp && mv tmp sigma_table.csv
+
 	else
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
@@ -380,9 +399,20 @@ function constrainsFunction {
 	done
 	###########################################################
 	##############FETCHING TI BY GI############################
-	total=$(ls -1 parsed_*.profiles.dat|wc -l)
+	total=$(ls -1 parsed_*.profiles.dat |wc -l)
 	if [ $((total)) -le 1 ]; then
-		echo "need at least 2 files to make a table"
+		#echo "need at least 2 files to make a table"
+		cp parsed_$profile.dat parsed__$profile.dat
+
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . .profiles.dat constrains_table.csv
+		rm makeCSV.R parsed*
+
+		sed "s/\.\.\./ /g" constrains_table.csv > tmp
+		awk '{FS=",";if(NR==1){printf "Kingdom,Phylum,Class,Order,Family,Genus,Species,Name%s\n",$0;FS=" "}else{FS=",";gsub("\\.",",",$1);FS=" ";print $0}}' tmp > constrains_table.csv
+		rm tmp*
+		awk -F"," '{$(NF-1)=$NF;$NF="";for(i=1;i<(NF-1);i++){printf "%s,",$i}printf "%s\n",$(NF-1)}' constrains_table.csv > tmp && mv tmp constrains_table.csv
+
 	else
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
@@ -434,7 +464,20 @@ function krakenFunction {
 	#####################################################
 	total=$(ls -1 *.kraken.dat |wc -l)
 	if [ $((total)) -le 1 ]; then
-		echo "need at least 2 files to make a table"
+		#echo "need at least 2 files to make a table"
+		cp parsed_$kraken.dat parsed__$kraken.dat
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . .kraken.dat kraken_table.csv
+		rm parsed* makeCSV.R
+		sed "s/\.\.\./ /g" kraken_table.csv > tmp
+		sed "s/,parsed/Kingdom.Phylum.Class.Order.Family.Genus.Species.Name,parsed/" tmp > tmp2
+		sed "s/\"//g" tmp2 > tmp3
+		awk 'BEGIN{FS=","}{if(NR==1){gsub("\\.",",",$1);FS=" ";gsub(" ",",",$0);print $0}else{gsub("\\.",",",$1);FS=" ";print $0}}' tmp3 > tmp4
+		awk -F"," '{if(NR==1){print $0;next}for(i=1;i<7;i++){printf "%s,",$i};printf "%s,%s,",$8,$8; for(i=9;i<NF;i++){printf "%s,",$i}; printf "%s\n",$NF}' tmp4 > kraken_table.csv
+
+		rm tmp*
+		awk -F"," '{$(NF-1)=$NF;$NF="";for(i=1;i<(NF-1);i++){printf "%s,",$i}printf "%s\n",$(NF-1)}' kraken_table.csv > tmp && mv tmp kraken_table.csv
+
 	else
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
@@ -466,7 +509,17 @@ function taxatorFunction {
 	done	
 		total=$(ls -1 parsed_*.tax.dat |wc -l)
 	if [ $((total)) -le 1 ]; then
-		echo "need at least 2 files to make a table"
+		#echo "need at least 2 files to make a table"
+		cp parsed_$taxfile.dat parsed__$taxfile.dat
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . tax.dat taxator_table.csv
+		rm parsed* makeCSV.R
+		sed "s/ti\.//g" taxator_table.csv > tmp
+		rm -f taxator_table && mv tmp taxator_table.csv
+
+		TakeLineageFunction taxator_table.csv
+		awk -F"," '{$(NF-1)=$NF;$NF="";for(i=1;i<(NF-1);i++){printf "%s,",$i}printf "%s\n",$(NF-1)}' taxator_table.csv > tmp && mv tmp taxator_table.csv
+
 	else
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
@@ -489,8 +542,64 @@ function centrifugeFunction {
 	done	
 	total=$(ls -1 parsed*.tsv.cf |wc -l)
 	if [ $((total)) -le 1 ]; then
-		echo "* need at least 2 files to make a table."
-		echo "* Done"
+		#echo "* need at least 2 files to make a table."
+		cp parsed_$tsvfile.cf parsed__$tsvfile.cf
+		makeCSV > makeCSV.R
+		Rscript makeCSV.R . .tsv.cf centrifuge_table.csv
+		rm parsed*.cf makeCSV.R
+
+		#take lineage
+		echo 'Kingdom,Phylum,Class,Order,Family,Genus,Species,Name' > tmp.csv 
+		awk '{if(NR>1)print}' centrifuge_table.csv |while read line
+		do
+			genus=$(echo "$line" |awk -F"," '{print $1}' |awk -F"." '{print $1}')
+			species=$(echo "$line" |awk -F"," '{print $1}' |awk -F"." '{print $2}')
+
+			if [ "$species" == "" ];then
+				echo "* no species was detected, aborting, check centrifuge table, genus: $genus, species: $species"
+				exit
+			fi
+
+			nofetch=""
+			while [ "$nofetch" == "" ] || [[ "$nofetch" =~ "Connection refused" ]] || [[ "$nofetch" =~ "Bad Gateway!" ]]
+			do
+				if curl -s "http://www.ebi.ac.uk/ena/data/view/Taxon:$genus%20$species&display=xml" |awk 'BEGIN{band=0}{if($1=="<lineage>"){band=1;next}if(band==1){print}if($1=="</lineage>"){exit}}' > tmplin ;then
+					touch tmplin
+					nofetch=$(cat tmplin)
+				else
+					echo "curl error fetch, internet connection?, retrying after 10 seconds"
+					nofetch=""
+					wait 10
+				fi
+			done
+
+			family=$(grep "rank=\"family\"" tmplin |awk '{print $2}' |awk -F"=" '{gsub("\"","");print $2}')
+			if [ "$family" == "" ];then 
+				family="unknow"
+			fi
+			order=$(grep "rank=\"order\"" tmplin |awk '{print $2}' |awk -F"=" '{gsub("\"","");print $2}')
+			if [ "$order" == "" ];then 
+				order="unknow"
+			fi
+			class=$(grep "rank=\"class\"" tmplin |awk '{print $2}' |awk -F"=" '{gsub("\"","");print $2}')
+			if [ "$class" == "" ];then 
+				class="unknow"
+			fi
+			phylum=$(grep "rank=\"phylum\"" tmplin |awk '{print $2}' |awk -F"=" '{gsub("\"","");print $2}')
+			if [ "$phylum" == "" ];then 
+				phylum="unknow"
+			fi
+			superk=$(grep "rank=\"superkingdom\"" tmplin |awk '{print $2}' |awk -F"=" '{gsub("\"","");print $2}')
+			if [ "$superk" == "" ];then 
+				superk="unknow"
+			fi
+			echo "$superk,$phylum,$class,$order,$family,$genus,$species,$genus $species"  >> tmp.csv
+		done
+		awk -F"," '{$1="";gsub(" ",",");print $0}' centrifuge_table.csv > tmpvalues.csv
+		paste -d '\0' tmp.csv tmpvalues.csv > centrifuge_table.csv
+		rm -f tmplin tmp.csv tmpvalues.csv
+		awk -F"," '{$(NF-1)=$NF;$NF="";for(i=1;i<(NF-1);i++){printf "%s,",$i}printf "%s\n",$(NF-1)}' centrifuge_table.csv > tmp && mv tmp centrifuge_table.csv
+
 	else
 		#we call makeCSV.R to merge the results in a single file that contain the "raw data" for several analysis
 		#parameters: work_directory pattern_file name_out_table
@@ -658,7 +767,7 @@ function makeCSV {
 #begin the code
 if [[ "$METHOD" =~ "METAPHLAN" ]] || [[ "$METHOD" =~ "CONSTRAINS" ]] || [[ "$METHOD" =~ "SIGMA" ]]; then
 	if [ "$DEEPS" == "" ]; then
-		echo "Metaphlan2, Constrains and Sigma needs Deep sequence as parameter, use --deeps (see help)"
+		echo "Metaphlan2, Constrains and Sigma needs depth of sequencing as parameter, put DEPTH=[SOME INTEGER] in the config file (see help)"
 		exit
 	fi
 fi

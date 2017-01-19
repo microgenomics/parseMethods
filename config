@@ -3,10 +3,8 @@
 # case sensitive (use uppercase)
 
 METHOD=KRAKEN
-MODULES=PARSE
+DEPTH=1000000
 
-
-#ABUNDANCE specify how many reads mapped or should map to the database. This flag will convert metaphlan and constrains proportions reads into raw read counts
-#ABUNDANCE=100000
 #METHOD contain the software name that you want parse
 #METHOD=PATHOSCOPE,METAMIX,SIGMA,METAPHLAN,CONSTRAINS
+#DEPTH is the depth of secuencing that the results have, Metaphlan2, Constrains and Sigma needs this parameter
