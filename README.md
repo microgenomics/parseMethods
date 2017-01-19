@@ -14,9 +14,9 @@ R packages rJava, methods, xlsxjars (install from R console by issuing `install.
 
 ## Usage
 
-    bash parseMethods.bash --workpath . --cfile config.conf --depth 1000000
+    bash parseMethods.bash --workpath . --cfile config.conf
 
-Where `--workpath` is the path to the directory that contains your program-specific output files. In the example, the files within `./example_files/` come from [PathoScope2](https://github.com/PathoScope/PathoScope). `--cfile` is a plain-text configuration file where you can pass options to the program as to what piece of software the files come from, whether you want proportions instead of reads, etc. Finally, the `--depth` allow parseMethods show the total in reads counts, some softwares report the results in % and this option fix it (Metaphlan2, Constrains and Sigma).
+Where `--workpath` is the path to the directory that contains your program-specific output files. In the example, the files within `./example_files/` come from [PathoScope2](https://github.com/PathoScope/PathoScope). `--cfile` is a plain-text configuration file where you can pass options to the program as to what piece of software the files come from, whether you want proportions instead of reads, etc.
 
 
 ## Example output
