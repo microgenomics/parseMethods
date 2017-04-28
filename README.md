@@ -16,9 +16,9 @@ R packages rJava, methods, xlsxjars (install from R console by issuing `install.
 
     bash parseMethods.bash --workpath . --cfile config.conf
     or
-    bash parseMethods.bash --workpath . --method=PATHOSCOPE
+    bash parseMethods.bash --workpath . --method PATHOSCOPE
 
-Where `--workpath` is the path to the directory that contains your program-specific output files. In the example, the files within `./example_files/` come from [PathoScope2](https://github.com/PathoScope/PathoScope). `--cfile` is a plain-text configuration file where you can pass options to the program as to what piece of software the files come from, whether you want proportions instead of reads, etc. finally --method can avoid you to use an config file and just pass the method output that you can pass (only valid for pathoscope2, metamix, and kraken, taxator and centrifuge).
+Where `--workpath` is the path to the directory that contains your program-specific output files. In the example, the files within `./example_files/` come from [PathoScope2](https://github.com/PathoScope/PathoScope). `--cfile` is a plain-text configuration file where you can pass options to the program as to what piece of software the files come from, whether you want proportions instead of reads, etc. finally --method can avoid you to use an config file just passing the method (coma separate),  only valid for pathoscope2, metamix, and kraken, taxator and centrifuge.
 
 
 ## Example output
