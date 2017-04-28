@@ -24,6 +24,7 @@ workband=0
 cfileband=0
 statusband=0
 deepsband=0
+methodband=0
 
 for i in "$@"
 do
@@ -33,6 +34,9 @@ do
 	;;
 	"--cfile")
 		cfileband=1
+	;;
+	"--method")
+		methodband=1
 	;;
 	"--help")
 		echo "Usage: bash parseMethods.bash --workpath . --cfile config"
@@ -70,6 +74,13 @@ do
 			done
 			statusband=$((statusband+1))
 			cfileband=0
+		fi
+
+		if [ $((methodband)) -eq 1 ];then
+			METHOD=$(echo "$i" |sed "s/,/ /g")
+			statusband=$((statusband+1))
+			methodband=0
+
 		fi
 
 	;;
@@ -156,7 +167,7 @@ function pathoscopeFunction {
 	#this function take the pathoscope results (tsv file), and parse it to leave only the tax id and number of mapped reads (% mapped reads if you specify an abundance in config file)
 	###################################################################################################################################################################################
 
-	for tsvfile in $(ls -1 pathoscope*.tsv)
+	for tsvfile in $(ls -1 *report.tsv)
 	do
 		awk 'BEGIN{FS="|"}{print $2}' $tsvfile |awk '{if(NR>2)print $1, $4/2}' > pathoids.dat
 		tsvfile=$(echo "$tsvfile" |sed "s/,/./g")
